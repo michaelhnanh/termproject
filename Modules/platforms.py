@@ -8,3 +8,8 @@
 
 # structures i.e. ruins would add more flair to the terrain, and would probably be generated 
 # in much the same way as the terrain, since they still should obey by the consistent curvature
+
+class Platform:
+    platformList = []
+    def __init__(self) -> None:
+        pass
