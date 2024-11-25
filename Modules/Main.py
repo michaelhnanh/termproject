@@ -5,7 +5,7 @@ from chasers import *
 from hazards import *
 from platforms import *
 
-import math, time, random
+import math, time, random, functools
 
 def onAppStart(app):
     scale = 75
@@ -34,9 +34,9 @@ def onAppStart(app):
     p4 = Point(app.width, app.height * 6 / 7)
     app.terrain = Terrain(p1, p2, p3, p4)
 
-    x = app.width / 2
-    y = app.height * 5 / 6
-    app.character = Character()
+    # x = app.width / 2
+    # y = app.height * 5 / 6
+    # app.character = Character()
     
     # would be constrained when grounded but freed when grounded == False
 
@@ -45,6 +45,7 @@ def onKeyPress(app, key):
         if key:
             slideButtons() # moves buttons off screen
             time.sleep(2)
+            app.terrain.startPreGen(app.width)
             app.gameState == 'playing'
 
     elif app.gameState == 'playing':
@@ -58,13 +59,14 @@ def onKeyPress(app, key):
         #         app.character.drop()
 
         # terrain testing nav:
-        if key == 'w':
+        # if key == 'w':
             
-        elif key == 's':
+        # elif key == 's':
 
-        elif key == 'a':
+        # elif key == 'a':
 
-        elif key == 'd':
+        # elif key == 'd':
+        pass
 
 
     elif app.gameState == 'dead':
@@ -100,26 +102,22 @@ def onStep(app):
         if app.character.rotating == False:
             app.character.reCenter()
 
-        
         # terrain generation loop
-        # detect when need to generate new terrain --> controlList[0][0].x < 0
+        # detect when need to generate new terrain --> controlList[0][-1].x < app.width
+        if app.terrain.controlList[0][-1].x <= app.width:
+            app.terrain.fullGenerator(app.width)
 
-        # controlPointGenerator takes in p3, p4, and width
-        # --> spits out 4 new control points --> add to a list --> add list to controlList
-
-        # feed control points into genCurve --> spits out list of points for drawing
-        # append to pointList
-
-        # detect when curve has passed x = 0 --> controlList[0][-1].x < app.width (or another variable)
+        # detect when curve has passed x = 0 --> controlList[0][-1].x < 0 (or another variable)
         # remove from pointList, remove from controlList
-
-        # detecting when to generate and when to remove is easy --> detect when 
-
+        if app.terrain.controlList[0][-1].x < 0:
+            app.terrain.controlList.pop(0)
+            app.terrain.pointList.pop(0)
 
     elif app.gameState == 'pause':
         pass
 
 # function to move terrain + hazards + platforms + chasers 
+@functools.cache
 def moveWorld():
     if app.worldMoveVectX != 0 or app.worldMoveVectY != 0:
         for counter in range(0, len(app.terrain.curveList) + 1, 2):
@@ -132,32 +130,49 @@ def moveWorld():
 def redrawAll(app):
     # background --> draw series of shifting polygons
 
-    # terrain --> draw polygon that is shifting and stuff
+    # terrain --> draw polygon --> select which curves to draw based on the position of 
+    # control points unpack selected pointList indexes into drawPolygon, starting and ending with anchor points
+    # draw 0th curve of course
+    # repeatedly check 
+    drawTo = 1
+    for index in range(1, len(app.terrain.controlList)):
+        p1 = app.terrain.controlList[index][0]
+        if p1.x <= app.width and p1.x <= app.height:
+            drawTo += 1
+            print('1')
+    curveList = []
+    curves = app.terrain.pointList[:drawTo]
+    for curve in curves:
+        curveList.extend(curve)
+            
+    anchorStart = [0, 2000] # has to be [x,y] to be placed into drawPolygon, y determined by last controlpoint
+    anchorEnd = [app.width, 2000]
+
+    drawPolygon(*anchorStart, *curveList, *anchorEnd)
 
     # overlays --> slide to the outside and disappear when game starts
 
-    if app.gameState == 'startScreen':
-        drawImage() # logo
-        drawLabel('Press any key to play', ) 
-            # settings
-        drawImage()
-        drawLabel('Settings')
-            # character select
-        drawImage()
-        drawLabel('Characters')
-    if app.gameState == 'playing':
-        drawImage() # logo
-        drawLabel('Press any key to play', ) 
-            # settings
-        drawImage()
-        drawLabel('Settings')
-            # character select
-        drawImage()
-        drawLabel('Characters')
+    # if app.gameState == 'startScreen':
+    #     drawImage() # logo
+    #     drawLabel('Press any key to play', ) 
+    #         # settings
+    #     drawImage()
+    #     drawLabel('Settings')
+    #         # character select
+    #     drawImage()
+    #     drawLabel('Characters')
+    # if app.gameState == 'playing':
+    #     drawImage() # logo
+    #     drawLabel('Press any key to play', ) 
+    #         # settings
+    #     drawImage()
+    #     drawLabel('Settings')
+    #         # character select
+    #     drawImage()
+    #     drawLabel('Characters')
 
-    if app.gameState == 'pause':
+    # if app.gameState == 'pause':
         # overlay pause screen on top
-        pass
 
 # superfluous UI things
 def slideButtons():
