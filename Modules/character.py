@@ -25,5 +25,5 @@ class Character:
     def drop(self):
         pass
 
-    def reCenter():
+    def reCenter(self):
         pass

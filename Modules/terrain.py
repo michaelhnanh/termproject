@@ -22,6 +22,8 @@ class Terrain:
         self.controlList = [] # 2d list containing lists of control points
         self.lengthList = [] # length of the list of points in pointList corresponding to controlList[0]
 
+        self.curvesPassed = []
+
     def startPreGen(self, width):
         # for the start of the game only, pre-generates one curve ahead of time + starting curve
         self.controlList.append([self.p1, self.p2, self.p3, self.p4])
@@ -30,12 +32,16 @@ class Terrain:
         self.lengthList.append(len(curve))
         self.pointList.append(curve)
 
+        self.curvesPassed.append(False)
+
         self.fullGenerator(width)
 
     def fullGenerator(self, width):
         # controlPointGenerator takes in p3, p4, and width
         # --> spits out 4 new control points --> add to a list --> add list to controlList
+        print('\ngenerating points with: ', self.p1, self.p2, self.p3, self.p4, '\n')
         self.p1, self.p2, self.p3, self.p4 = self.controlPointGenerator(width)
+        print('\ngenerated points: ',self.p1, self.p2, self.p3, self.p4)
         self.controlList.append([self.p1, self.p2, self.p3, self.p4])
         
         # feed control points into genCurve --> spits out list of points for drawing
@@ -43,6 +49,8 @@ class Terrain:
         curve = self.genCurve()
         self.lengthList.append(len(curve))
         self.pointList.append(curve)
+
+        self.curvesPassed.append(False)
 
     @staticmethod
     def cubicBezier(p1, p2, p3, p4, t):
@@ -87,9 +95,10 @@ class Terrain:
     # calculate c1 continuity with the previous curve and returns a control point for joined curve
     @staticmethod
     def c1(p3, p4):
+        # print('c1 calculation with: ',p3, p4)
         vectorX = p4.x - p3.x
         vectorY = p4.y - p3.y
-        p5 = Point(p3.x + vectorX * 2, p3.y * vectorY * 2)
+        p5 = Point(p4.x + vectorX, p4.y + vectorY)
         return p5
 
     # c2 continuity - may not be used - returns 2 control points
@@ -110,50 +119,55 @@ class Terrain:
         # c0 should require the tangent of p41 to be upward sloping (or negative, in this instance)
         if p4.y > p5.y:
             continuity = random.randrange(1, 20)
-            if continuity == 13: return 0
-            else: return 1
+            if continuity == 13: 
+                # print('0')
+                return 0
+            else: 
+                # print('1')
+                return 1
         else:
+            # print('1')
             return 1
 
     # generate new curve 3 when curve 1 is passed --> curve 2 is kept in memory
     # has to generate two curves at the start of a run
     def controlPointGenerator(self, width):
-        # takes in p21, p31, p41 as the new p12 is determined by p41 of the last curve - p(point #, curve #)
-        # may be using p31 and possibly p21 depending on continuity
-        # p12 = p41
         p22 = Terrain.c1(self.p3, self.p4)
 
         # some formula to allow for a wider normal distribution
-        totalLength = width * normalScalar() * 3
+        scalar = normalScalar() 
+        totalLength = width * scalar * 3
+        # print('width: ',width, ' ---- scalar: ',scalar,' ---- totallength: ',totalLength)
 
-        # can determine p22, p32, p42 using an angle instead of just a x and y scalar - more control
         continuity = Terrain.continuousRand(self.p4, p22)
         if continuity == 0:
             lengthp22 = totalLength / 3 * normalScalar()
             anglep22 = math.radians(random.randrange(270, 315, 1))
             p22 = Point(self.p4.x + lengthp22 * math.cos(anglep22), 
                         self.p4.y + lengthp22 * math.sin(anglep22))
+            
+        print('p22: ',p22)
         # if continuity == 1 do nothing
 
         # limit slope between 6 - 70 degrees
         anglep42 = math.radians(normalRandom(290, 354, 1))
         # p32 can be below or above p42, controlling whether or not the curve will flick up or down
-        anglep32 = math.radians(normalRandom(135, 225, 1)) # --> angle from p42
+        anglep32 = math.radians(normalRandom(135, 225, 1))
 
-        p42 = Point(self.p4.x + totalLength * math.cos(anglep42), self.p4.y + totalLength * math.sin(anglep42))
+        p42 = Point(self.p4.x + totalLength * math.cos(anglep42), self.p4.y + (totalLength * math.sin(anglep42) * -1))
         lengthp32 = totalLength / 3 * normalScalar()
-        p32 = Point(p42.x + lengthp32 * math.cos(anglep32), p42.y + lengthp32 * math.cos(anglep32))
-
+        p32 = Point(p42.x + lengthp32 * math.cos(anglep32), p42.y - (lengthp32 * math.cos(anglep32) * -1))
+        print('p32: ',p32)
+        print('p42: ',p42)
+        
+        # print(self.p4, p22, p32, p42)
         return self.p4, p22, p32, p42
         
 def normalScalar():
-    return ((random.random() - random.random() + 1)/2)//0.001 # truncate it as more accuracy is not important
+    return ((random.random() - random.random() + 1)/2) # truncate it as more accuracy is not important
 
 def normalRandom(min, max, step = 1):
     center = min + max
     return (random.randrange(min, max, step) - random.randrange(min, max, step) + center)/2
-
-
-    
 
     
