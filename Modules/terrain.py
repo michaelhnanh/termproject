@@ -10,6 +10,8 @@ class Terrain:
     lineSplit = 100
     segment = 1 / lineSplit
 
+    curveSegmentLength = 10 # pixels
+
     def __init__(self, p1, p2, p3, p4):
         self.p1 = p1
         self.p2 = p2
@@ -92,14 +94,17 @@ class Terrain:
             t += Terrain.segment
         return curve
     
-    # calculate c1 continuity with the previous curve and returns a control point for joined curve
+    # calculate c1 continuity with the previous curve and returns an angle for the first control point of the next curve
     @staticmethod
     def c1(p3, p4):
         # print('c1 calculation with: ',p3, p4)
         vectorX = p4.x - p3.x
         vectorY = p4.y - p3.y
-        p5 = Point(p4.x + vectorX, p4.y + vectorY)
-        return p5
+        return vectorX, vectorY
+    
+    @staticmethod
+    def c1Angle(p3, p4):
+        return math.atan2(p4.x - p3.x, p4.y - p3.y)
 
     # c2 continuity - may not be used - returns 2 control points
     @staticmethod
@@ -132,39 +137,50 @@ class Terrain:
     # generate new curve 3 when curve 1 is passed --> curve 2 is kept in memory
     # has to generate two curves at the start of a run
     def controlPointGenerator(self, width):
-        p22 = Terrain.c1(self.p3, self.p4)
+        pastLength = ((self.p4.x - self.p1.x) ** 2 + (self.p4.y - self.p1.x) ** 2) ** 0.5
+        p12 = Point(self.p4.x, self.p4.y)
 
         # some formula to allow for a wider normal distribution
-        scalar = normalScalar() 
-        totalLength = width * scalar * 3
-        # print('width: ',width, ' ---- scalar: ',scalar,' ---- totallength: ',totalLength)
+        scalar = normalScalar() * 3
+        if scalar < 0.8:
+            scalar = 0.8
+        totalLength = width * scalar
+
+        lengthp22 = totalLength / 3
+        c1vectX, c1vectY = Terrain.c1(self.p3, self.p4)
+        c1vectX = c1vectX / pastLength * totalLength 
+        c1vectY = c1vectY / pastLength * totalLength
+        p22 = Point(p12.x + c1vectX, p12.y + c1vectY)
 
         continuity = Terrain.continuousRand(self.p4, p22)
         if continuity == 0:
-            lengthp22 = totalLength / 3 * normalScalar()
             anglep22 = math.radians(random.randrange(270, 315, 1))
             p22 = Point(self.p4.x + lengthp22 * math.cos(anglep22), 
-                        self.p4.y + lengthp22 * math.sin(anglep22))
+                        self.p4.y - lengthp22 * math.sin(anglep22))
             
         print('p22: ',p22)
         # if continuity == 1 do nothing
 
-        # limit slope between 6 - 70 degrees
-        anglep42 = math.radians(normalRandom(290, 354, 1))
+        # limit slope between 6 - 45 degrees
+        anglep42 = math.radians(normalRandom(315, 354, 1))
         # p32 can be below or above p42, controlling whether or not the curve will flick up or down
-        anglep32 = math.radians(normalRandom(135, 225, 1))
+        if scalar > 1:
+            anglep32 = math.radians(normalRandom(135, 205, 1))
+        else:
+            anglep32 = math.radians(normalRandom(135, 180, 1))
+        # anglep32 = math.radians(90)
 
-        p42 = Point(self.p4.x + totalLength * math.cos(anglep42), self.p4.y + (totalLength * math.sin(anglep42) * -1))
-        lengthp32 = totalLength / 3 * normalScalar()
-        p32 = Point(p42.x + lengthp32 * math.cos(anglep32), p42.y - (lengthp32 * math.cos(anglep32) * -1))
+        p42 = Point(p12.x + totalLength * math.cos(anglep42), p12.y - (totalLength * math.sin(anglep42)))
+        lengthp32 = totalLength / 3 
+        p32 = Point(p42.x + lengthp32 * math.cos(anglep32), p42.y - (lengthp32 * math.sin(anglep32)))
         print('p32: ',p32)
         print('p42: ',p42)
         
         # print(self.p4, p22, p32, p42)
-        return self.p4, p22, p32, p42
+        return p12, p22, p32, p42
         
 def normalScalar():
-    return ((random.random() - random.random() + 1)/2) # truncate it as more accuracy is not important
+    return ((random.random() - random.random() + 1)/2)
 
 def normalRandom(min, max, step = 1):
     center = min + max
