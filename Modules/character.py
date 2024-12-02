@@ -14,8 +14,8 @@ class Character:
         self.rotating = True
         self.platformed = False
         
-        self.vert = 50
-        self.rotationRate = 2
+        self.vert = 10
+        self.rotationRate = 5
         self.speed = 1
         self.momentum = 0
 
@@ -26,7 +26,7 @@ class Character:
         self.posOnCurve = 0
 
         # sprite links --> key frames and 1 in-between
-        self.linkGrounded = None
+        self.linkGrounded = 'cmu://872298/35406762/austinBaseTest.png'
         self.linkGroundtoUn = None
         self.linkUngrounded = None
 

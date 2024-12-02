@@ -21,7 +21,8 @@ class Terrain:
         self.pointsList = []
         self.controlList = [] # 2d list containing lists of control points
         self.lengthList = [] # length of the list of points in pointsList corresponding to controlList[0]
-
+        self.continuityList = [1] # continuity figure correlates to p2 of the curve --> first curve has 1 as default
+ 
         self.curvesPassed = []
 
     def startPreGen(self, width):
@@ -125,9 +126,9 @@ class Terrain:
         # c0 should require the tangent of p41 to be upward sloping (or negative, in this instance)
         if p4.y > p5.y:
             continuity = random.randrange(1, 20)
-            if continuity == 13: 
+            if True: 
                 # print('0')
-                return 0
+                return 1
             else: 
                 # print('1')
                 return 1
@@ -178,6 +179,7 @@ class Terrain:
         p32 = Point(p42.x + lengthp32 * math.cos(anglep32), p42.y - (lengthp32 * math.sin(anglep32)))
         print('p32: ',p32)
         print('p42: ',p42)
+        self.continuityList.append(continuity)
         
         # print(self.p4, p22, p32, p42)
         return p12, p22, p32, p42, scalar

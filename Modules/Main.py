@@ -13,14 +13,14 @@ def onAppStart(app):
     app.height = 9 * scale
     app.score = 0
     app.timeofday = 0
-    app.gravity = 1
+    app.gravity = 0.5
 
     # superfluous things
     app.settings = Point(app.width * 1 / 8, app.height * 1 / 7)
     app.characterSelect = Point(app.width * 7 / 8, app.height * 1 / 7)
 
     # game timings  
-    app.stepsPerSecond = 30 # fixed cus like 60 frames per second u know
+    app.stepsPerSecond = 60 # fixed cus like 60 frames per second u know
     app.gameState = 'startScreen'
 
     # world movement
@@ -36,20 +36,26 @@ def onAppStart(app):
     app.terrain = Terrain(p1, p2, p3, p4)
     app.terrain.startPreGen(app.width)
 
-    app.character = Character(600, 482)
-    app.character.grounded = True
+    app.character = Character(app.width/5, app.height/2)
+    app.character.grounded = False
     app.character.rotating = False
     app.character.orientation = 0
+
+    app.groundPoint = None
+    app.fonts = ['arial', 'monospace', 'caveat', 'cinzel', 'montserrat', 'grenze', 'sacramento', 'orbitron']
+    app.fontTest = 0
 
 
 def onKeyPress(app, key):
     if app.gameState == 'startScreen':
-        if key:
+        if (key == 'W' or 'w' or 'space' or 'up'):
             app.gameState = 'playing'
             print(app.gameState)
 
     elif app.gameState == 'playing':
-        if key == 'W' or 'w' or 'space' or 'up':
+        if (key == 'W' or 'w' or 'space' or 'up') and app.character.grounded == True:
+            app.characterMovementVectY = 0
+            app.characterMovementVectX = 0
             jump(app)
         if key == 'escape':
             app.gameState = 'pause'
@@ -83,7 +89,7 @@ def onKeyPress(app, key):
 def onKeyHold(app, keys):
     if app.gameState == 'playing':
         if ('space' in keys or 'w' in keys or 'W' in keys or 'up' in keys) and (app.character.grounded == False):
-            app.character.orientation += 1 # rotating
+            app.character.orientation -= app.character.rotationRate # rotating
         elif 'escape' in keys:
             app.gameState = 'pause'
 
@@ -125,6 +131,7 @@ def onStep(app):
             app.terrain.controlList.pop(0)
             app.terrain.pointsList.pop(0)
             app.terrain.curvesPassed.pop(0)
+            app.terrain.continuityList.pop(0)
             app.character.currentCurve -= 1
             print('\n0th curve removed\n')
 
@@ -134,24 +141,57 @@ def onStep(app):
 
         if app.character.grounded: # have to update character.currentCurve if it overshoots curve
             # sliding character along slopes --> turn into function later
-            # vectX, vectY = slideCharacter(app, setClosestPosOnCurve(app), app.character.speed)
+            # vectX, vectY = slideCharacter(app, findClosestPosOnCurve(app), app.character.speed)
             # worldMovementVectX += vectX
             # worldMovementVectY += vectY
             setCurrentCurve(app)
+            # print(f'curve i am currently on has c{app.terrain.continuityList[app.character.currentCurve]} continuity, next has c{app.terrain.continuityList[app.character.currentCurve + 1]} continuity')
             slideCharacter(app)
-            setOrientation(app)
+            app.character.orientation = getOrientation(app)
+            moveWorld(app, worldMovementVectX, worldMovementVectY)
+            if app.terrain.continuityList[app.character.currentCurve] == 0:
+                slideOff(app)
         else: 
-            # make gravity act upon player --> change y vector by some amount over time
+            moveWorld(app, worldMovementVectX, worldMovementVectY)
             setCurrentCurve(app)
-            app.characterMovementVectY += 5
-            # jumping --> change x and y vect according to orientation angle
+            app.character.posOnCurve = findClosestPosOnCurve(app) # continually keeps track of position on curve for collision
+            if app.characterMovementVectY < 30:
+                app.characterMovementVectY += app.gravity # gravity   
+            print(f'post grav: {app.characterMovementVectY}')    
 
-            # move player according to momentum --> carry on vectX from slide calculations
-            # cosntantly check if player is grounded again <-- probably the hardest part
-            pass
+            if app.characterMovementVectX > 2:
+                app.characterMovementVectX -= 0.25
             
-        moveWorld(app, worldMovementVectX, worldMovementVectY)
-
+            # ground collision check
+            groundPointApproximate = assignCurvePoint(app, app.character.posOnCurve)
+            print(f'ground point approximate coords: {groundPointApproximate}')
+            print(f'player coords {Point(app.character.x, app.character.y)}')
+            app.groundPoint = groundPointApproximate
+            error = distance(app.character, groundPointApproximate)
+            if groundPointApproximate.y <= app.character.y:
+                if app.character.x > groundPointApproximate.x:
+                    if app.character.posOnCurve + 2 >= len(app.terrain.pointsList[app.character.currentCurve]):
+                        nextPoint = assignCurvePoint2(app, 0, app.character.currentCurve + 1)
+                    else:
+                        nextPoint = assignCurvePoint(app, app.character.posOnCurve + 2)
+                    angleToNextPoint = math.atan2(nextPoint.y - groundPointApproximate.y, nextPoint.x - groundPointApproximate.x)
+                    vectX = groundPointApproximate.x - app.character.x + error * math.cos(math.radians(angleToNextPoint))
+                    vectY = groundPointApproximate.y - app.character.y + error * math.sin(math.radians(angleToNextPoint))
+                else:
+                    if app.character.posOnCurve - 2 < 0:
+                        lastPoint = assignCurvePoint2(app, 0, app.character.currentCurve - 1)
+                    else:
+                        lastPoint = assignCurvePoint(app, app.character.posOnCurve - 2)
+                    angleToLastPoint = math.atan2(lastPoint.y - groundPointApproximate.y, lastPoint.x - groundPointApproximate.x)
+                    vectX = groundPointApproximate.x - app.character.x + error * math.cos(math.radians(angleToLastPoint))
+                    vectY = groundPointApproximate.y - app.character.y + error * math.sin(math.radians(angleToLastPoint))
+                
+                app.characterMovementVectX = vectX
+                app.characterMovementVectY = vectY
+                app.character.grounded = True
+            #     # check if it if an over or under estimate in x value
+            #     # then check if 
+    
     elif app.gameState == 'pause':
         pass
 
@@ -246,14 +286,14 @@ def moveCharacter(app, posOnCurve, speed):
             return vectX, vectY
 
 def slideCharacter(app):
-    print('\n')
-    app.character.posOnCurve = setClosestPosOnCurve(app) # finds it every time character moves
+    # print('\n')
+    app.character.posOnCurve = findClosestPosOnCurve(app) # finds it every time character moves
     initial = assignCurvePoint(app, app.character.posOnCurve)
-    print(f'{initial} --> ')
+    # print(f'{initial} --> ')
     
     initialXError = app.character.x - initial.x
     initialYError = app.character.y - initial.y
-    print(initialXError, initialYError)
+    # print(initialXError, initialYError)
     # print(f'initial error is {initialError * errorDir}')
     distanceMoved = 0
 
@@ -273,13 +313,13 @@ def slideCharacter(app):
 
     overshot = assignCurvePoint(app, i)
     undershot = assignCurvePoint(app, i-2)
-    print(f'{undershot} -- [target] -- {overshot}')
+    # print(f'{undershot} -- [target] -- {overshot}')
 
     overshootingError = distanceMoved - app.character.speed
-    print(f'point overshot by: {overshootingError}')
+    # print(f'point overshot by: {overshootingError}')
     # direction of this error should be calculated
     angle = math.radians(math.atan2(overshot.x - undershot.x, (overshot.y - undershot.y)))
-    print(math.degrees(angle))
+    # print(math.degrees(angle))
 
     characterPositionX = overshot.x + (overshootingError + initialXError) * math.cos(angle)
     characterPositionY = overshot.y - (overshootingError + initialYError) * math.sin(angle)
@@ -287,9 +327,10 @@ def slideCharacter(app):
     app.characterMovementVectX = characterPositionX - app.character.x
     app.characterMovementVectY = characterPositionY - app.character.y
     app.character.momentum = app.characterMovementVectX
-    print(f'x move: {app.characterMovementVectX}, y move: {app.characterMovementVectY}')
+    # print(f'x move: {app.characterMovementVectX}, y move: {app.characterMovementVectY}')
 
-def setOrientation(app):
+def getOrientation(app):
+    # print(f'orientation check --> {app.character.posOnCurve - 2}, {app.character.posOnCurve}, {app.character.posOnCurve + 2}')
     preceedingPoint = assignCurvePoint(app, app.character.posOnCurve - 2)
     if app.character.posOnCurve + 2 >= len(app.terrain.pointsList[app.character.currentCurve]):
         app.character.currentCurve += 1
@@ -298,10 +339,10 @@ def setOrientation(app):
     else:
         proceedingPoint = assignCurvePoint(app, app.character.posOnCurve + 2)
     angle = math.atan2((proceedingPoint.y - preceedingPoint.y), proceedingPoint.x - preceedingPoint.x)
-    print(f'character orientation is {math.degrees(angle)}')
-    app.character.orientation = math.degrees(angle)
+    # print(f'character orientation is {math.degrees(angle)}')
+    return math.degrees(angle)
     
-def setClosestPosOnCurve(app): # finds the closest point the character is on on the currentCurve
+def findClosestPosOnCurve(app): # finds the closest point the character is on on the currentCurve
     satisfied = False
     currentPoint = assignCurvePoint(app, 0)
     smallestDifference = abs(currentPoint.x - app.character.x)
@@ -312,7 +353,7 @@ def setClosestPosOnCurve(app): # finds the closest point the character is on on 
         if newDifference <= smallestDifference: 
             smallestDifference = newDifference
             smallestDifferenceIndex = i
-    print(f'found closest at point # {smallestDifferenceIndex // 2} of curve {app.character.currentCurve}')
+    # print(f'found closest at point # {smallestDifferenceIndex // 2} of curve {app.character.currentCurve}')
     return smallestDifferenceIndex
 
 def setCurrentCurve(app):
@@ -328,21 +369,35 @@ def assignCurvePoint(app, i):
     return Point(app.terrain.pointsList[app.character.currentCurve][i], 
                 app.terrain.pointsList[app.character.currentCurve][i + 1])
 
+def assignCurvePoint2(app, i, curve = None):
+    if curve == None:
+        curve = app.character.currentCurve
+    return Point(app.terrain.pointsList[curve][i], 
+                app.terrain.pointsList[curve][i + 1])
+
 def jump(app):
     app.character.grounded = False
-    angleOfJump = app.character.orientation + 90
     if app.character.orientation > 0:
         app.characterMovementVectX = (app.character.vert + app.character.momentum) * math.cos(app.character.orientation)
-        app.characterMovementVectY = (app.character.vert) * math.sin(app.character.orientation)
+        app.characterMovementVectY = (app.character.vert) * math.sin(app.character.orientation + 90)
+    elif app.character.orientation > 20:
+        app.characterMovementVectX = (app.character.momentum) * math.cos(app.character.orientation)
+        app.characterMovementVectY = (app.character.vert + app.character.momentum) * math.sin(app.character.orientation)
     else:
-        app.characterMovementVectX = 
-        app.characterMovementVectY = 
+        app.characterMovementVectX = (app.character.momentum) * math.cos(app.character.orientation)
+        app.characterMovementVectY = (app.character.vert) * math.sin(app.character.orientation + 90)
+    app.characterMovementVectX = (app.character.momentum) * math.cos(math.radians(app.character.orientation)) + (app.character.vert) * math.cos(math.radians(app.character.orientation - 90))
+    app.characterMovementVectY = (app.character.vert) * math.sin(math.radians(app.character.orientation - 90))
+    print(f'jumpX: {app.characterMovementVectX} jumpY: {app.characterMovementVectY}')
+    
+def slideOff(app):
+    app.character.grounded = False
+    app.terrain.continuityList[app.character.currentCurve] = 1
 
 
 # function to move terrain + hazards + platforms + chasers + character
 def moveWorld(app, worldMovementVectX, worldMovementVectY):
     # if app.moveWorldVectX != 0 or app.moveWorldVectY != 0:
-    print(app.characterMovementVectX, app.characterMovementVectY)
     for curvePoints in app.terrain.pointsList:
         for counter in range(0, len(curvePoints), 2):
             curvePoints[counter] -= (app.characterMovementVectX)
@@ -371,10 +426,23 @@ def redrawAll(app):
     anchorStart = [0, app.height] # has to be [x,y] to be placed into drawPolygon, y determined by last controlpoint
     anchorEnd = [app.width, app.height]
 
-    drawPolygon(*anchorStart, *drawnpointsList, *anchorEnd, fill = 'lightgreen')
+    terrainGradient = gradient('white', 'lightgreen', 'lightgreen', start='left-bottom')
+    drawPolygon(*anchorStart, *drawnpointsList, *anchorEnd, fill = terrainGradient)
 
-    drawRect(app.character.x, app.character.y, 30, 15, fill='coral', border=None, borderWidth=2, dashes=False, opacity=100,        
-             rotateAngle = app.character.orientation, align = 'center')
+    if app.gameState == 'startScreen':
+        drawLabel("AUSTIN'S", app.width/2, app.height/5, align = 'center', size = 100, font = 'monospace', bold = True)
+        drawLabel("ADVENTURE", app.width/2, app.height/5 + 60, align = 'center', size = 75, font = 'monospace', bold = True)
+
+    if app.gameState == 'playing':
+        drawRect(app.character.x, app.character.y, 15, 7, fill='coral', border=None, borderWidth=2, dashes=False,      
+                    rotateAngle = app.character.orientation, align = 'center')
+    
+    # width, height = getImageSize(app.character.linkGrounded)
+    # drawImage('cmu://872298/35406762/austinBaseTest.png', app.character.x, app.character.y, width, height, 
+    #           rotateAngle = app.character.orientation, align = 'center')
+    
+    # if app.character.grounded == False and app.groundPoint != None:
+    #     drawCircle(app.groundPoint.x, app.groundPoint.y, 10, fill='cyan')
 
 
     # overlays --> slide to the outside and disappear when game starts

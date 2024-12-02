@@ -22,7 +22,10 @@ class Point:
         return newpoint
     
     def __eq__(self, point2):
-        return (self.x == point2.x) and (self.y == point2.y)
+        if type(point2) == Point:
+            return (self.x == point2.x) and (self.y == point2.y)
+        else:
+            return False
 
     def __repr__(self):
         return f'({self.x}, {self.y})'
