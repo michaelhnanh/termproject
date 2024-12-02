@@ -7,7 +7,8 @@ import math
 class Character:
 
     def __init__(self, x, y):
-        self.pos = Point(x, y)
+        self.x = x
+        self.y = y
         self.orientation = 0
         self.grounded = False
         self.rotating = True
@@ -15,10 +16,13 @@ class Character:
         
         self.vert = 50
         self.rotationRate = 2
-        self.speed = 15
+        self.speed = 1
 
         self.positionX = 0.5 # starts off at the middle of the screen --> launches out --> smoothly goes back to width/4
         self.positionY = 0.5
+
+        self.currentCurve = 0 # which curve in the terrain lists the character is on
+        self.posOnCurve = 0
 
         # sprite links --> key frames and 1 in-between
         self.linkGrounded = None

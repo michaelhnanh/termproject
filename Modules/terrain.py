@@ -20,9 +20,9 @@ class Terrain:
         # these points would store the LAST control points after the last curve was generated,
         # be updated, and stored again
 
-        self.pointList = []
+        self.pointsList = []
         self.controlList = [] # 2d list containing lists of control points
-        self.lengthList = [] # length of the list of points in pointList corresponding to controlList[0]
+        self.lengthList = [] # length of the list of points in pointsList corresponding to controlList[0]
 
         self.curvesPassed = []
 
@@ -32,7 +32,7 @@ class Terrain:
 
         curve = self.genCurve()
         self.lengthList.append(len(curve))
-        self.pointList.append(curve)
+        self.pointsList.append(curve)
 
         self.curvesPassed.append(False)
 
@@ -42,15 +42,17 @@ class Terrain:
         # controlPointGenerator takes in p3, p4, and width
         # --> spits out 4 new control points --> add to a list --> add list to controlList
         print('\ngenerating points with: ', self.p1, self.p2, self.p3, self.p4, '\n')
-        self.p1, self.p2, self.p3, self.p4 = self.controlPointGenerator(width)
+        self.p1, self.p2, self.p3, self.p4, scalar = self.controlPointGenerator(width)
         print('\ngenerated points: ',self.p1, self.p2, self.p3, self.p4)
         self.controlList.append([self.p1, self.p2, self.p3, self.p4])
         
         # feed control points into genCurve --> spits out list of points for drawing
-        # append to pointList
+        # append to pointsList
+        lineSplit = 100 * scalar
+        segment = 1 / lineSplit
         curve = self.genCurve()
         self.lengthList.append(len(curve))
-        self.pointList.append(curve)
+        self.pointsList.append(curve)
 
         self.curvesPassed.append(False)
 
@@ -142,8 +144,8 @@ class Terrain:
 
         # some formula to allow for a wider normal distribution
         scalar = normalScalar() * 3
-        if scalar < 0.8:
-            scalar = 0.8
+        # if scalar < 0.8:
+        #     scalar = 0.8
         totalLength = width * scalar
 
         lengthp22 = totalLength / 3
@@ -177,7 +179,7 @@ class Terrain:
         print('p42: ',p42)
         
         # print(self.p4, p22, p32, p42)
-        return p12, p22, p32, p42
+        return p12, p22, p32, p42, scalar
         
 def normalScalar():
     return ((random.random() - random.random() + 1)/2)
