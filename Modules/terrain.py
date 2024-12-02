@@ -7,7 +7,7 @@ import math, random
 
 class Terrain:
     xray = []
-    lineSplit = 100
+    lineSplit = 150
     segment = 1 / lineSplit
 
     curveSegmentLength = 10 # pixels
@@ -48,8 +48,9 @@ class Terrain:
         
         # feed control points into genCurve --> spits out list of points for drawing
         # append to pointsList
-        lineSplit = 100 * scalar
+        lineSplit = 150 * scalar
         segment = 1 / lineSplit
+        print(lineSplit)
         curve = self.genCurve()
         self.lengthList.append(len(curve))
         self.pointsList.append(curve)
@@ -143,9 +144,11 @@ class Terrain:
         p12 = Point(self.p4.x, self.p4.y)
 
         # some formula to allow for a wider normal distribution
-        scalar = normalScalar() * 3
-        # if scalar < 0.8:
-        #     scalar = 0.8
+        scalar = normalScalar() * 2
+        if scalar < 0.8:
+            scalar = 0.8
+        if scalar > 1.2:
+            scalar = 1.2
         totalLength = width * scalar
 
         lengthp22 = totalLength / 3

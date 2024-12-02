@@ -13,14 +13,14 @@ def onAppStart(app):
     app.height = 9 * scale
     app.score = 0
     app.timeofday = 0
-    app.gravity = 10
+    app.gravity = 1
 
     # superfluous things
     app.settings = Point(app.width * 1 / 8, app.height * 1 / 7)
     app.characterSelect = Point(app.width * 7 / 8, app.height * 1 / 7)
 
     # game timings
-    app.stepsPerSecond = 2 # fixed cus like 60 frames per second u know
+    app.stepsPerSecond = 60 # fixed cus like 60 frames per second u know
     app.gameState = 'startScreen'
 
     # world movement
@@ -153,77 +153,36 @@ def onStep(app):
         if app.character.grounded: # have to update character.currentCurve if it overshoots curve
             # sliding character along slopes --> turn into function later
             setCurrentCurve(app)
-            vectX, vectY = slideCharacter(app, setClosestPosOnCurve(app), app.character.speed)
-            worldMovementVectX += vectX
-            worldMovementVectY += vectY
+            # vectX, vectY = slideCharacter(app, setClosestPosOnCurve(app), app.character.speed)
+            # worldMovementVectX += vectX
+            # worldMovementVectY += vectY
+            slideCharacter(app)
         else: # character is in air
-            pass
+            
 
         moveWorld(app, worldMovementVectX, worldMovementVectY)
 
     elif app.gameState == 'pause':
         pass
 
-def slideCharacter(app):
-    print('\n')
-    app.character.posOnCurve = findClosestPosOnCurve(app) # finds it every time character moves
-    initial = assignCurvePoint(app, app.character.posOnCurve)
-    print(f'{initial} --> ')
-    
-    initialXError = app.character.x - initial.x
-    initialYError = app.character.y - initial.y
-    print(initialXError, initialYError)
-    # print(f'initial error is {initialError * errorDir}')
-    distanceMoved = 0
-
-    stored = initial
-    i = app.character.posOnCurve
-
-    while distanceMoved < app.character.speed:
-        i += 2
-        if i >= len(app.terrain.pointsList[app.character.currentCurve]):
-            app.character.currentCurve += 1
-            i = 0
-        
-        current = assignCurvePoint(app, i)
-        newDistance = distance(stored, current) # distance moved from one point to another
-        distanceMoved += newDistance
-        stored = current # resetting jumping point
-
-    overshot = assignCurvePoint(app, i)
-    undershot = assignCurvePoint(app, i-2)
-    print(f'{undershot} -- [target] -- {overshot}')
-
-    overshootingError = distanceMoved - app.character.speed
-    print(f'point overshot by: {overshootingError}')
-    # direction of this error should be calculated
-    angle = math.radians(math.atan2(overshot.x - undershot.x, (overshot.y - undershot.y)))
-    print(math.degrees(angle))
-
-    characterPositionX = overshot.x + (overshootingError + initialXError) * math.cos(angle)
-    characterPositionY = overshot.y - (overshootingError + initialYError) * math.sin(angle)
-
-    app.characterMovementVectX = characterPositionX - app.character.x
-    app.characterMovementVectY = characterPositionY - app.character.y
-    print(f'x move: {app.characterMovementVectX}, y move: {app.characterMovementVectY}')
-
-def slideCharacter(app, posOnCurve, speed = app.character.speed):
+def moveCharacter(app, posOnCurve, speed):
     app.character.posOnCurve = posOnCurve
     initialPoint = assignCurvePoint(app, app.character.posOnCurve)
 
     # closest point may be an under or over estimate - if negative --> overestimate, if positive --> underestimate
     initialDir = app.character.x - initialPoint.x
-    initialError = distance(Point(app.character.x, app.character), initialPoint)
+    initialError = distance(Point(app.character.x, app.character.y), initialPoint)
     
     projectedDistanceMoved = 0
     counter = app.character.posOnCurve
 
     while projectedDistanceMoved < speed:
-        if counter >= len(app.terrain.pointsList[app.character.currentCurve]): 
+        if counter + 2 >= len(app.terrain.pointsList[app.character.currentCurve]): 
             # character is projected to move between points of next curve
             app.character.currentCurve += 1
             counter = 0
-
+        
+        print(counter, counter + 2)
         oneJump = distance(assignCurvePoint(app, counter), assignCurvePoint(app, counter + 2))
         projectedDistanceMoved += oneJump
         counter += 2
@@ -275,8 +234,18 @@ def slideCharacter(app, posOnCurve, speed = app.character.speed):
     else: # if initial position underestimated --> projectedDistanceMove is an underestimate
         # check if initial error + undershot correction is larger than distance from undershot to overshot point
         if remainingInterPointDistance + initialError > lastJump:
-            moveWorld(app, overshot.x - app.character.x, overshot.y - app.character.y)
-            vectX, vectY = slideCharacter(app, counter, remainingInterPointDistance + initialError - lastJump)
+            if counter + 2 >= len(app.terrain.pointsList[app.character.currentCurve]):
+                afterOverShot = Point(app.terrain.pointsList[app.character.currentCurve + 1][0], 
+                                      app.terrain.pointsList[app.character.currentCurve + 1][1])
+                angle = math.atan2(afterOverShot.x - overshot.x, -1 * (afterOverShot.y - overshot.y))
+            else:
+                afterOverShot = Point(app.terrain.pointsList[app.character.currentCurve][counter + 2], 
+                                      app.terrain.pointsList[app.character.currentCurve][counter + 3])
+                angle = math.atan2(afterOverShot.x - overshot.x, -1 * (afterOverShot.y - overshot.y))
+            
+            remainingDistanceAfterCorrection = lastJump - (remainingInterPointDistance + initialError)
+            vectX = overshot.x - app.character.x + remainingDistanceAfterCorrection * math.cos(math.radians(angle))
+            vectY = overshot.y - app.character.y + remainingDistanceAfterCorrection * math.sin(math.radians(angle))
             return vectX, vectY
         
         else: # if not, then the target point is in the middle of the undershot and overshot points
@@ -285,19 +254,62 @@ def slideCharacter(app, posOnCurve, speed = app.character.speed):
             vectY = undershot.y - app.character.y + (remainingInterPointDistance + initialError) * math.sin(math.radians(angle))
             return vectX, vectY
 
+def slideCharacter(app):
+    print('\n')
+    app.character.posOnCurve = setClosestPosOnCurve(app) # finds it every time character moves
+    initial = assignCurvePoint(app, app.character.posOnCurve)
+    print(f'{initial} --> ')
+    
+    initialXError = app.character.x - initial.x
+    initialYError = app.character.y - initial.y
+    print(initialXError, initialYError)
+    # print(f'initial error is {initialError * errorDir}')
+    distanceMoved = 0
+
+    stored = initial
+    i = app.character.posOnCurve
+
+    while distanceMoved < app.character.speed:
+        i += 2
+        if i >= len(app.terrain.pointsList[app.character.currentCurve]):
+            app.character.currentCurve += 1
+            i = 0
+        
+        current = assignCurvePoint(app, i)
+        newDistance = distance(stored, current) # distance moved from one point to another
+        distanceMoved += newDistance
+        stored = current # resetting jumping point
+
+    overshot = assignCurvePoint(app, i)
+    undershot = assignCurvePoint(app, i-2)
+    print(f'{undershot} -- [target] -- {overshot}')
+
+    overshootingError = distanceMoved - app.character.speed
+    print(f'point overshot by: {overshootingError}')
+    # direction of this error should be calculated
+    angle = math.radians(math.atan2(overshot.x - undershot.x, (overshot.y - undershot.y)))
+    print(math.degrees(angle))
+
+    characterPositionX = overshot.x + (overshootingError + initialXError) * math.cos(angle)
+    characterPositionY = overshot.y - (overshootingError + initialYError) * math.sin(angle)
+
+    app.characterMovementVectX = characterPositionX - app.character.x
+    app.characterMovementVectY = characterPositionY - app.character.y
+    print(f'x move: {app.characterMovementVectX}, y move: {app.characterMovementVectY}')
+
 def setClosestPosOnCurve(app): # finds the closest point the character is on on the currentCurve
     satisfied = False
     currentPoint = assignCurvePoint(app, 0)
-    smallestDifference =  abs(currentPoint.x - app.character.x)
+    smallestDifference = abs(currentPoint.x - app.character.x)
     smallestDifferenceIndex = 0
-    for i in range(2, len(app.terrain.pointsList), 2):
+    for i in range(2, len(app.terrain.pointsList[app.character.currentCurve]), 2):
         currentPoint = assignCurvePoint(app, i) 
         newDifference = abs(currentPoint.x - app.character.x)
         if newDifference <= smallestDifference: 
             smallestDifference = newDifference
             smallestDifferenceIndex = i
-    print(f'found closest at point # {i} of curve {app.character.currentCurve}: ')
-    return i
+    print(f'found closest at point # {smallestDifferenceIndex // 2} of curve {app.character.currentCurve}')
+    return smallestDifferenceIndex
 
 def setCurrentCurve(app):
     satisfied = False
@@ -318,12 +330,12 @@ def moveWorld(app, worldMovementVectX, worldMovementVectY):
     # if app.moveWorldVectX != 0 or app.moveWorldVectY != 0:
     for curvePoints in app.terrain.pointsList:
         for counter in range(0, len(curvePoints), 2):
-            curvePoints[counter] -= (worldMovementVectX)
-            curvePoints[counter + 1] -= (worldMovementVectX)
+            curvePoints[counter] -= (app.characterMovementVectX + worldMovementVectX)
+            curvePoints[counter + 1] -= (app.characterMovementVectY + worldMovementVectX)
     for curve in app.terrain.controlList:
         for controlPoint in curve:
-            controlPoint.x -= (worldMovementVectY)
-            controlPoint.y -= (worldMovementVectY)
+            controlPoint.x -= (app.characterMovementVectX + worldMovementVectY)
+            controlPoint.y -= (app.characterMovementVectY + worldMovementVectY)
 
 def redrawAll(app):
     # background --> draw series of shifting polygons
@@ -346,7 +358,7 @@ def redrawAll(app):
 
     drawPolygon(*anchorStart, *drawnpointsList, *anchorEnd, fill = 'lightgreen')
 
-    drawCircle(app.character.x, app.character.y, 5, fill='coral')
+    drawCircle(app.character.x, app.character.y, 25, fill='coral')
 
     # overlays --> slide to the outside and disappear when game starts
 
