@@ -17,6 +17,7 @@ class Character:
         self.vert = 50
         self.rotationRate = 2
         self.speed = 1
+        self.momentum = 0
 
         self.positionX = 0.5 # starts off at the middle of the screen --> launches out --> smoothly goes back to width/4
         self.positionY = 0.5
@@ -45,12 +46,6 @@ class Character:
     # character should be controlled at the base of feet --> just a Point(x,y)
     # character sprite is centered at a point height/2 away from base, perpendicular to orientation of character, with the sprite
     # rotated in that orientation
-
-
-
-    def jump(self):
-        # small jump effect --> moves off of center line in order to convey jumping effect
-        pass
 
     def rotate(self):
         pass

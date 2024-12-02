@@ -19,8 +19,8 @@ def onAppStart(app):
     app.settings = Point(app.width * 1 / 8, app.height * 1 / 7)
     app.characterSelect = Point(app.width * 7 / 8, app.height * 1 / 7)
 
-    # game timings
-    app.stepsPerSecond = 60 # fixed cus like 60 frames per second u know
+    # game timings  
+    app.stepsPerSecond = 30 # fixed cus like 60 frames per second u know
     app.gameState = 'startScreen'
 
     # world movement
@@ -39,6 +39,7 @@ def onAppStart(app):
     app.character = Character(600, 482)
     app.character.grounded = True
     app.character.rotating = False
+    app.character.orientation = 0
 
 
 def onKeyPress(app, key):
@@ -47,78 +48,59 @@ def onKeyPress(app, key):
             app.gameState = 'playing'
             print(app.gameState)
 
-    # elif app.gameState == 'playing':
-    #     # if key == 'space' or key == 'w' or key == 'W' or key == 'up':
-    #     #     app.character.grounded = False
-    #     #     app.character.jump()
-    #     # elif key == 'escape':
-    #     #     app.gameState = 'pause'
-    #     # if app.character.platformed:
-    #     #     if key == 'down' or key == 's' or key == 'S':
-    #     #         app.character.drop()
-
-    #     # terrain testing nav:
-    #     if key == 'w':
-    #         app.moveWorldVectX = 0
-    #         app.moveWorldVectY = -100
-    #     elif key == 's':
-    #         app.moveWorldVectX = 0
-    #         app.moveWorldVectY = 100
-    #     elif key == 'a':
-    #         app.moveWorldVectX = -100
-    #         app.moveWorldVectY = 0
-    #     elif key == 'd':
-    #         app.moveWorldVectX = 100
-    #         app.moveWorldVectY = 0
-
-    elif app.gameState == 'dead':
+    elif app.gameState == 'playing':
+        if key == 'W' or 'w' or 'space' or 'up':
+            jump(app)
         if key == 'escape':
-            app.gameState = 'exit'
-    
-
-def onKeyRelease(app, key):
-    if app.gameState == 'playing':
-        if (key == 'space' or key == 'w' or key == 'W' or key == 'up') and app.character.grounded == False:
-            app.character.rotating = False
-        if key == 'w':
-            app.moveWorldVectX = 0
-            app.moveWorldVectY = 0
-        elif key == 's':
-            app.moveWorldVectX = 0
-            app.moveWorldVectY = 0
-        elif key == 'a':
-            app.moveWorldVectX = 0
-            app.moveWorldVectY = 0
-        elif key == 'd':
-            app.moveWorldVectX = 0
-            app.moveWorldVectY = 0
-  
-
-def onKeyHold(app, keys):
-    if app.gameState == 'playing':
-        # if key == 'space' or key == 'w' or key == 'W' or key == 'up':
-        #     app.character.grounded = False
-        #     app.character.jump()
-        # elif key == 'escape':
-        #     app.gameState = 'pause'
+            app.gameState = 'pause'
         # if app.character.platformed:
         #     if key == 'down' or key == 's' or key == 'S':
         #         app.character.drop()
 
-        # terrain testing nav:
-        if 'w' in keys:
-            app.moveWorldVectX = 0
-            app.moveWorldVectY = -50
-        if 's' in keys:
-            app.moveWorldVectX = 0
-            app.moveWorldVectY = 50
-        if 'a' in keys:
-            app.moveWorldVectX = -50
-            app.moveWorldVectY = 0
-        if 'd' in keys:
-            app.moveWorldVectX = 50
-            app.moveWorldVectY = 0
-        
+    # elif app.gameState == 'dead':
+    #     if key == 'escape':
+    #         app.gameState = 'exit'
+    
+
+# def onKeyRelease(app, key):
+#     if app.gameState == 'playing':
+#         if (key == 'space' or key == 'w' or key == 'W' or key == 'up') and app.character.grounded == False:
+#             app.character.rotating = False
+#         if key == 'w':
+#             app.moveWorldVectX = 0
+#             app.moveWorldVectY = 0
+#         elif key == 's':
+#             app.moveWorldVectX = 0
+#             app.moveWorldVectY = 0
+#         elif key == 'a':
+#             app.moveWorldVectX = 0
+#             app.moveWorldVectY = 0
+#         elif key == 'd':
+#             app.moveWorldVectX = 0
+#             app.moveWorldVectY = 0
+  
+
+def onKeyHold(app, keys):
+    if app.gameState == 'playing':
+        if ('space' in keys or 'w' in keys or 'W' in keys or 'up' in keys) and (app.character.grounded == False):
+            app.character.orientation += 1 # rotating
+        elif 'escape' in keys:
+            app.gameState = 'pause'
+
+
+        # # terrain testing nav:
+        # if 'w' in keys:
+        #     app.moveWorldVectX = 0
+        #     app.moveWorldVectY = -50
+        # if 's' in keys:
+        #     app.moveWorldVectX = 0
+        #     app.moveWorldVectY = 50
+        # if 'a' in keys:
+        #     app.moveWorldVectX = -50
+        #     app.moveWorldVectY = 0
+        # if 'd' in keys:
+        #     app.moveWorldVectX = 50
+        #     app.moveWorldVectY = 0
 
 def onMousePress(app, mouseX, mouseY):
     pass
@@ -152,19 +134,28 @@ def onStep(app):
 
         if app.character.grounded: # have to update character.currentCurve if it overshoots curve
             # sliding character along slopes --> turn into function later
-            setCurrentCurve(app)
             # vectX, vectY = slideCharacter(app, setClosestPosOnCurve(app), app.character.speed)
             # worldMovementVectX += vectX
             # worldMovementVectY += vectY
+            setCurrentCurve(app)
             slideCharacter(app)
-        else: # character is in air
-            
+            setOrientation(app)
+        else: 
+            # make gravity act upon player --> change y vector by some amount over time
+            setCurrentCurve(app)
+            app.characterMovementVectY += 5
+            # jumping --> change x and y vect according to orientation angle
 
+            # move player according to momentum --> carry on vectX from slide calculations
+            # cosntantly check if player is grounded again <-- probably the hardest part
+            pass
+            
         moveWorld(app, worldMovementVectX, worldMovementVectY)
 
     elif app.gameState == 'pause':
         pass
 
+# character movement
 def moveCharacter(app, posOnCurve, speed):
     app.character.posOnCurve = posOnCurve
     initialPoint = assignCurvePoint(app, app.character.posOnCurve)
@@ -295,8 +286,21 @@ def slideCharacter(app):
 
     app.characterMovementVectX = characterPositionX - app.character.x
     app.characterMovementVectY = characterPositionY - app.character.y
+    app.character.momentum = app.characterMovementVectX
     print(f'x move: {app.characterMovementVectX}, y move: {app.characterMovementVectY}')
 
+def setOrientation(app):
+    preceedingPoint = assignCurvePoint(app, app.character.posOnCurve - 2)
+    if app.character.posOnCurve + 2 >= len(app.terrain.pointsList[app.character.currentCurve]):
+        app.character.currentCurve += 1
+        proceedingPoint = assignCurvePoint(app, 0)
+        app.character.currentCurve -= 1
+    else:
+        proceedingPoint = assignCurvePoint(app, app.character.posOnCurve + 2)
+    angle = math.atan2((proceedingPoint.y - preceedingPoint.y), proceedingPoint.x - preceedingPoint.x)
+    print(f'character orientation is {math.degrees(angle)}')
+    app.character.orientation = math.degrees(angle)
+    
 def setClosestPosOnCurve(app): # finds the closest point the character is on on the currentCurve
     satisfied = False
     currentPoint = assignCurvePoint(app, 0)
@@ -324,18 +328,29 @@ def assignCurvePoint(app, i):
     return Point(app.terrain.pointsList[app.character.currentCurve][i], 
                 app.terrain.pointsList[app.character.currentCurve][i + 1])
 
+def jump(app):
+    app.character.grounded = False
+    angleOfJump = app.character.orientation + 90
+    if app.character.orientation > 0:
+        app.characterMovementVectX = (app.character.vert + app.character.momentum) * math.cos(app.character.orientation)
+        app.characterMovementVectY = (app.character.vert) * math.sin(app.character.orientation)
+    else:
+        app.characterMovementVectX = 
+        app.characterMovementVectY = 
+
 
 # function to move terrain + hazards + platforms + chasers + character
 def moveWorld(app, worldMovementVectX, worldMovementVectY):
     # if app.moveWorldVectX != 0 or app.moveWorldVectY != 0:
+    print(app.characterMovementVectX, app.characterMovementVectY)
     for curvePoints in app.terrain.pointsList:
         for counter in range(0, len(curvePoints), 2):
-            curvePoints[counter] -= (app.characterMovementVectX + worldMovementVectX)
-            curvePoints[counter + 1] -= (app.characterMovementVectY + worldMovementVectX)
+            curvePoints[counter] -= (app.characterMovementVectX)
+            curvePoints[counter + 1] -= (app.characterMovementVectY)
     for curve in app.terrain.controlList:
         for controlPoint in curve:
-            controlPoint.x -= (app.characterMovementVectX + worldMovementVectY)
-            controlPoint.y -= (app.characterMovementVectY + worldMovementVectY)
+            controlPoint.x -= (app.characterMovementVectX)
+            controlPoint.y -= (app.characterMovementVectY)
 
 def redrawAll(app):
     # background --> draw series of shifting polygons
@@ -358,7 +373,9 @@ def redrawAll(app):
 
     drawPolygon(*anchorStart, *drawnpointsList, *anchorEnd, fill = 'lightgreen')
 
-    drawCircle(app.character.x, app.character.y, 25, fill='coral')
+    drawRect(app.character.x, app.character.y, 30, 15, fill='coral', border=None, borderWidth=2, dashes=False, opacity=100,        
+             rotateAngle = app.character.orientation, align = 'center')
+
 
     # overlays --> slide to the outside and disappear when game starts
 

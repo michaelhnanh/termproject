@@ -10,8 +10,6 @@ class Terrain:
     lineSplit = 150
     segment = 1 / lineSplit
 
-    curveSegmentLength = 10 # pixels
-
     def __init__(self, p1, p2, p3, p4):
         self.p1 = p1
         self.p2 = p2
@@ -107,7 +105,7 @@ class Terrain:
     
     @staticmethod
     def c1Angle(p3, p4):
-        return math.atan2(p4.x - p3.x, p4.y - p3.y)
+        return math.atan2(p4.y - p3.y, p4.x - p3.x)
 
     # c2 continuity - may not be used - returns 2 control points
     @staticmethod
@@ -145,10 +143,10 @@ class Terrain:
 
         # some formula to allow for a wider normal distribution
         scalar = normalScalar() * 2
-        if scalar < 0.8:
-            scalar = 0.8
-        if scalar > 1.2:
-            scalar = 1.2
+        if scalar < 0.9:
+            scalar = 0.9
+        if scalar > 1.1:
+            scalar = 1.1
         totalLength = width * scalar
 
         lengthp22 = totalLength / 3
