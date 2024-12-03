@@ -9,6 +9,8 @@ class Character:
     def __init__(self, x, y):
         self.x = x
         self.y = y
+        self.width = 30
+        self.height = 30
         self.orientation = 0
         self.grounded = False
         self.rotating = True
@@ -16,7 +18,7 @@ class Character:
         
         self.vert = 10
         self.rotationRate = 5
-        self.speed = 1
+        self.speed = 5
         self.momentum = 0
 
         self.positionX = 0.5 # starts off at the middle of the screen --> launches out --> smoothly goes back to width/4
@@ -26,7 +28,7 @@ class Character:
         self.posOnCurve = 0
 
         # sprite links --> key frames and 1 in-between
-        self.linkGrounded = 'cmu://872298/35406762/austinBaseTest.png'
+        self.linkGrounded = './Sprites/austinBase.png'
         self.linkGroundtoUn = None
         self.linkUngrounded = None
 

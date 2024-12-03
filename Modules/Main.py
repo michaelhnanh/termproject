@@ -42,9 +42,30 @@ def onAppStart(app):
     app.character.orientation = 0
 
     app.groundPoint = None
-    app.fonts = ['arial', 'monospace', 'caveat', 'cinzel', 'montserrat', 'grenze', 'sacramento', 'orbitron']
-    app.fontTest = 0
 
+def restartGame(app):
+    app.moveWorldVectX = 0
+    app.moveWorldVectY = 0
+    app.characterMovementVectX = 0
+    app.characterMovementVectY = 0
+
+    p1 = Point(0, app.height * 6 / 7)
+    p2 = Point(app.width / 4, app.height * 4 / 6)
+    p3 = Point(app.width * 3 / 4, app.height * 4 / 6)
+    p4 = Point(app.width + 1, app.height * 6 / 7)
+    app.terrain = Terrain(p1, p2, p3, p4)
+    app.terrain.controlList = []
+    app.terrain.pointsList = []
+    app.character.continuityList = [1] # continuity figure correlates to p2 of the curve --> first curve has 1 as default
+    app.character.curvesPassed = []
+    app.terrain.startPreGen(app.width)
+
+    app.character = Character(app.width/5, app.height/2)
+    app.character.grounded = False
+    app.character.rotating = False
+    app.character.orientation = 0
+
+    app.gameState = 'startScreen'
 
 def onKeyPress(app, key):
     if app.gameState == 'startScreen':
@@ -63,9 +84,10 @@ def onKeyPress(app, key):
         #     if key == 'down' or key == 's' or key == 'S':
         #         app.character.drop()
 
-    # elif app.gameState == 'dead':
-    #     if key == 'escape':
-    #         app.gameState = 'exit'
+    elif app.gameState == 'dead':
+        if key:
+            app.gameState = 'startScreen'
+            restartGame(app)
     
 
 # def onKeyRelease(app, key):
@@ -146,28 +168,32 @@ def onStep(app):
             # worldMovementVectY += vectY
             setCurrentCurve(app)
             # print(f'curve i am currently on has c{app.terrain.continuityList[app.character.currentCurve]} continuity, next has c{app.terrain.continuityList[app.character.currentCurve + 1]} continuity')
-            slideCharacter(app)
+            # slideCharacter(app)
+            app.characterMovementVectX, app.characterMovementVectY = moveCharacter(app)
+
             app.character.orientation = getOrientation(app)
             moveWorld(app, worldMovementVectX, worldMovementVectY)
             if app.terrain.continuityList[app.character.currentCurve] == 0:
                 slideOff(app)
+
         else: 
             moveWorld(app, worldMovementVectX, worldMovementVectY)
             setCurrentCurve(app)
+            orientationOfGround = getOrientation(app)
+            
             app.character.posOnCurve = findClosestPosOnCurve(app) # continually keeps track of position on curve for collision
             if app.characterMovementVectY < 30:
                 app.characterMovementVectY += app.gravity # gravity   
-            print(f'post grav: {app.characterMovementVectY}')    
+            # print(f'post grav: {app.characterMovementVectY}')    
 
-            if app.characterMovementVectX > 2:
-                app.characterMovementVectX -= 0.25
+            # if app.characterMovementVectX > 2:
+            #     app.characterMovementVectX -= 0.25
             
             # ground collision check
             groundPointApproximate = assignCurvePoint(app, app.character.posOnCurve)
-            print(f'ground point approximate coords: {groundPointApproximate}')
-            print(f'player coords {Point(app.character.x, app.character.y)}')
             app.groundPoint = groundPointApproximate
             error = distance(app.character, groundPointApproximate)
+
             if groundPointApproximate.y <= app.character.y:
                 if app.character.x > groundPointApproximate.x:
                     if app.character.posOnCurve + 2 >= len(app.terrain.pointsList[app.character.currentCurve]):
@@ -189,6 +215,14 @@ def onStep(app):
                 app.characterMovementVectX = vectX
                 app.characterMovementVectY = vectY
                 app.character.grounded = True
+
+                if app.character.orientation < -180:
+                    app.character.orientation += 360                
+                    # orientation never goes more than 180 degrees and less than -180 degrees
+                if (app.character.orientation + 60 < orientationOfGround) or (app.character.orientation - 45 > orientationOfGround):
+                    print(f'character orientation: {app.character.orientation} ground orientation: {orientationOfGround} --> dead')
+                    app.gameState = 'dead'
+                    
             #     # check if it if an over or under estimate in x value
             #     # then check if 
     
@@ -196,8 +230,9 @@ def onStep(app):
         pass
 
 # character movement
-def moveCharacter(app, posOnCurve, speed):
-    app.character.posOnCurve = posOnCurve
+def moveCharacter(app):
+    speed = app.character.speed
+    app.character.posOnCurve = findClosestPosOnCurve(app)
     initialPoint = assignCurvePoint(app, app.character.posOnCurve)
 
     # closest point may be an under or over estimate - if negative --> overestimate, if positive --> underestimate
@@ -412,6 +447,9 @@ def redrawAll(app):
 
     # terrain --> draw polygon --> select which curves to draw based on the position of 
     # control points unpack selected pointsList indexes into drawPolygon, starting and ending with anchor points
+    terrainGradient = gradient('white', rgb(173, 237, 208), start='bottom')
+    drawRect(0, 0, app.width, app.height, fill=terrainGradient)
+
     drawTo = 1
     for index in range(1, len(app.terrain.controlList)):
         p1 = app.terrain.controlList[index][0]
@@ -426,20 +464,35 @@ def redrawAll(app):
     anchorStart = [0, app.height] # has to be [x,y] to be placed into drawPolygon, y determined by last controlpoint
     anchorEnd = [app.width, app.height]
 
-    terrainGradient = gradient('white', 'lightgreen', 'lightgreen', start='left-bottom')
-    drawPolygon(*anchorStart, *drawnpointsList, *anchorEnd, fill = terrainGradient)
+    drawPolygon(*anchorStart, *drawnpointsList, *anchorEnd, fill = 'lightgreen')
 
     if app.gameState == 'startScreen':
-        drawLabel("AUSTIN'S", app.width/2, app.height/5, align = 'center', size = 100, font = 'monospace', bold = True)
-        drawLabel("ADVENTURE", app.width/2, app.height/5 + 60, align = 'center', size = 75, font = 'monospace', bold = True)
+        drawLabel("AUSTIN'S", app.width/2, app.height/5, align = 'center', size = 150, font = 'monospace', bold = True)
+        drawLabel("ADVENTURE", app.width/2, app.height/5 + 90, align = 'center', size = 100, font = 'monospace', bold = True)
+        drawLabel("Press any key to play", app.width/2, app.height/5*4, align = 'center', size = 15, font = 'monospace', bold = False)
+        drawLabel("Press W, space, or the up arrow key to jump/flip", app.width/2, app.height/5*4 + 15, align = 'center', size = 15, font = 'monospace', bold = False)
+
+    imageOffsetAngle = app.character.orientation - 90
+    playerImageCenterX = app.character.x + app.character.width/2 * math.cos(math.radians(imageOffsetAngle))
+    playerImageCenterY = app.character.y + app.character.height/2 * math.sin(math.radians(imageOffsetAngle))
+
 
     if app.gameState == 'playing':
         drawRect(app.character.x, app.character.y, 15, 7, fill='coral', border=None, borderWidth=2, dashes=False,      
                     rotateAngle = app.character.orientation, align = 'center')
-    
-    # width, height = getImageSize(app.character.linkGrounded)
-    # drawImage('cmu://872298/35406762/austinBaseTest.png', app.character.x, app.character.y, width, height, 
-    #           rotateAngle = app.character.orientation, align = 'center')
+
+        # drawImage(app.character.linkGrounded, app.character.x, app.character.y, 
+        #           width = app.character.width, height = app.character.width, align = 'bottom', 
+        #           rotateAngle = app.character.  orientation)
+        # drawLabel(math.floor(app.character.orientation), 45, 45)
+
+    if app.gameState == 'dead':
+    #     drawRect(app.character.x, app.character.y, 15, 7, fill='coral', border=None, borderWidth=2, dashes=False,      
+    #                 rotateAngle = app.character.orientation, align = 'center')
+        drawImage(app.character.linkGrounded, playerImageCenterX, playerImageCenterY+3, 
+                  width = app.character.width, height = app.character.width, align = 'center', 
+                rotateAngle = app.character.  orientation)
+        drawLabel("GAME OVER", app.width/2, app.height/5 , align = 'center', size = 100, font = 'monospace', bold = True)
     
     # if app.character.grounded == False and app.groundPoint != None:
     #     drawCircle(app.groundPoint.x, app.groundPoint.y, 10, fill='cyan')
