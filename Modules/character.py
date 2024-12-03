@@ -13,13 +13,16 @@ class Character:
         self.height = 30
         self.orientation = 0
         self.grounded = False
-        self.rotating = True
+        self.rotating = False
         self.platformed = False
         
         self.vert = 10
         self.rotationRate = 5
-        self.speed = 5
+        self.rotatedAmount = 0
+        self.rotationMomentum = 0
+        self.speed = 10
         self.momentum = 0
+        self.momentumOrientation = 0
 
         self.positionX = 0.5 # starts off at the middle of the screen --> launches out --> smoothly goes back to width/4
         self.positionY = 0.5

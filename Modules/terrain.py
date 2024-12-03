@@ -7,7 +7,7 @@ import math, random
 
 class Terrain:
     xray = []
-    lineSplit = 150
+    lineSplit = 75
     segment = 1 / lineSplit
 
     def __init__(self, p1, p2, p3, p4):
@@ -166,12 +166,12 @@ class Terrain:
         # if continuity == 1 do nothing
 
         # limit slope between 6 - 45 degrees
-        anglep42 = math.radians(normalRandom(315, 354, 1))
+        anglep42 = math.radians(normalRandom(325, 354, 1))
         # p32 can be below or above p42, controlling whether or not the curve will flick up or down
         if scalar > 1:
             anglep32 = math.radians(normalRandom(135, 205, 1))
         else:
-            anglep32 = math.radians(normalRandom(135, 180, 1))
+            anglep32 = math.radians(normalRandom(135, 225, 1))
         # anglep32 = math.radians(90)
 
         p42 = Point(p12.x + totalLength * math.cos(anglep42), p12.y - (totalLength * math.sin(anglep42)))
