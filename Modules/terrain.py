@@ -7,7 +7,7 @@ import math, random
 
 class Terrain:
     xray = []
-    lineSplit = 75
+    lineSplit = 25
     segment = 1 / lineSplit
 
     def __init__(self, p1, p2, p3, p4):

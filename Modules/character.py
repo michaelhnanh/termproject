@@ -20,7 +20,7 @@ class Character:
         self.rotationRate = 5
         self.rotatedAmount = 0
         self.rotationMomentum = 0
-        self.speed = 130
+        self.speed = 50
         self.momentum = 0
         self.momentumOrientation = 0
 
