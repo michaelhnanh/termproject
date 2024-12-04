@@ -98,7 +98,9 @@ def onKeyPress(app, key):
             jump(app)
             app.speedMax = app.characterMovementVectX
         if key == 'escape':
-            app.gameState = 'pause'
+            if app.gameState == 'playing':
+                app.gameState = 'pause'
+                print('paused')
         # if app.character.platformed:
         #     if key == 'down' or key == 's' or key == 'S':
         #         app.character.drop()
@@ -107,6 +109,11 @@ def onKeyPress(app, key):
         if key:
             app.gameState = 'startScreen'
             restartGame(app)
+
+    elif app.gameState == 'pause':
+        if key == 'escape':
+            app.gameState = 'playing'
+            print('playing')
 
 def onKeyRelease(app, key):
     if app.gameState == 'playing':
@@ -197,16 +204,16 @@ def onStep(app):
                     else:
                         nextPoint = assignCurvePoint(app, app.character.posOnCurve + 2)
                     angleToNextPoint = math.atan2(nextPoint.y - groundPointApproximate.y, nextPoint.x - groundPointApproximate.x)
-                    vectX = groundPointApproximate.x - app.character.x + error * math.cos(math.radians(angleToNextPoint))
-                    vectY = groundPointApproximate.y - app.character.y + error * math.sin(math.radians(angleToNextPoint))
+                    vectX = groundPointApproximate.x - app.character.x + error * math.cos(angleToNextPoint)
+                    vectY = groundPointApproximate.y - app.character.y + error * math.sin(angleToNextPoint)
                 else:
                     if app.character.posOnCurve - 2 < 0:
                         lastPoint = assignCurvePoint2(app, 0, app.character.currentCurve - 1)
                     else:
                         lastPoint = assignCurvePoint(app, app.character.posOnCurve - 2)
                     angleToLastPoint = math.atan2(lastPoint.y - groundPointApproximate.y, lastPoint.x - groundPointApproximate.x)
-                    vectX = groundPointApproximate.x - app.character.x + error * math.cos(math.radians(angleToLastPoint))
-                    vectY = groundPointApproximate.y - app.character.y + error * math.sin(math.radians(angleToLastPoint))
+                    vectX = groundPointApproximate.x - app.character.x + error * math.cos(angleToLastPoint)
+                    vectY = groundPointApproximate.y - app.character.y + error * math.sin(angleToLastPoint)
                 
                 app.character.rotatedAmount = 0
                 app.characterMovementVectX = vectX
@@ -240,6 +247,7 @@ def moveCharacter(app):
     
     projectedDistanceMoved = 0
     counter = app.character.posOnCurve
+    oneJump = 0
 
     while projectedDistanceMoved < app.character.speed:
         if counter + 2 >= len(app.terrain.pointsList[app.character.currentCurve]): 
@@ -261,30 +269,113 @@ def moveCharacter(app):
     print(f'overshot point is {overshot}')
     lastJump = oneJump # distance between under and over shot points
     projectedDistanceMoved -= lastJump
-    remainingInterPointDistance = app.character.speed - projectedDistanceMoved # the remaining distance the character has to
+    remainingInterPointDistance = app.character.speed - projectedDistanceMoved 
+    # --> the remaining distance between undershot and overshot that has to be moved
     print(f'remaining distance that has to be traversed {remainingInterPointDistance}')
-    # move between undershot and overshot points (not considering initial error correction)
 
-    # if projectedDistanceMoved == 0: # if the character will be moving only between two points
-    #     if initialDir < 0: # if initial position is overestimated --> moving towards undershot
-    #         if distance(Point(app.character.x, app.charactery), undershot) < app.character.speed:
-    #         # if distance to undershot point is gaming
-    #     elif initialDir > 0: # if initial position is underestimated --> moving towards overshot
+    # the character does not breach new points from their initial point
+    if projectedDistanceMoved == 0: 
+        print('interpoint movement')
+        if initialDir < 0: # if initial position is overestimated --> moving towards undershot
+            distanceToUndershot = distance(Point(app.character.x, app.character.y), undershot)
+            print('initial position is overestimated')
+            if distanceToUndershot >= app.character.speed:
+                # distance to undershot point is not fully traversable by speed --> would still fall short of undershot point
+                # calculating angle --> take point before undershot point
+                # need to correct for if undershot point is at 0th index of curve
+                underUnderShotIndex = counter - 2 - 2
+                if underUnderShotIndex < 0:
+                    underUnderShot = assignCurvePoint2(app, 198, app.character.currentCurve - 1)
+                else:
+                    underUnderShot = assignCurvePoint(app, underUnderShotIndex)
+                angle = math.atan2( -1 * (underUnderShot.y - undershot.y), underUnderShot.x - undershot.x)
+                vectX = (undershot.x - app.character.x -
+                        (distanceToUndershot - app.character.speed) * math.cos(angle))
+                vectY = (undershot.y - app.character.y +
+                        (distanceToUndershot - app.character.speed) * math.sin(angle))
+                print('movement to under')
+                print(f' Angle: {math.degrees(angle)}  X: {vectX},  Y:{vectY}')
+                return vectX, vectY
+            
+            else: # distance to undershot point is surpassed by speed
+                remainder = app.character.speed - distanceToUndershot
+                angle = math.atan2(-1 * (overshot.y - undershot.y), overshot.x - undershot.x)
+                vectX = (undershot.x - app.character.x + 
+                        (remainder) * math.cos(angle))
+                vectY = (undershot.y - app.character.y - 
+                        (remainder) * math.sin(angle))
+                
+                print(f'{undershot.x} - {app.character.x} + {remainder} * {math.cos(angle)} = {vectX}')
+                print(f'{undershot.y} - {app.character.y} + {remainder} * {math.sin(angle)} = {vectY}')
+                print('movement past under') # problem area
+                print(f' Angle: {math.degrees(angle)}  X: {vectX},  Y:{vectY}')
+                return vectX, vectY
+            
+        elif initialDir > 0: # if initial position is underestimated --> moving towards overshot
+            print('initial position is underestimated')
+            totalMovement = app.character.speed + distance(Point(app.character.x, app.character.y), undershot)
+            distanceToOvershot = distance(undershot, overshot)
 
-        
+            if totalMovement > distanceToOvershot: # final position will go past overshot
+                remainder = totalMovement - distanceToOvershot
+                overOverShotIndex = counter + 2
+                if overOverShotIndex >= len(app.terrain.pointsList[app.character.currentCurve]):
+                    overOverShot = assignCurvePoint2(app, 0, app.character.currentCurve + 1)
+                else:
+                    overOverShot = assignCurvePoint(app, overOverShotIndex)
+                angle = math.atan2(-1 * (overOverShot.y - overshot.y), overOverShot.x - overshot.x)
+                vectX = (overshot.x - app.character.x +
+                         (remainder) * math.cos(angle))
+                vectY = (overshot.y - app.character.y +
+                         (remainder) * math.sin(angle))
+                
+                print('movement past over')
+                print(f' X: {vectX},  Y:{vectY}')
+                return vectX, vectY
 
-    if initialDir < 0: # if initial position overestimated --> projectedDistanceMoved is an overestimate
+            else: # final position will be within undershot and overshot points
+                print(f'total movement is: {totalMovement}')
+                angle = math.atan2(-1 * (overshot.y - undershot.y), overshot.x - undershot.x)
+                vectX = (undershot.x - app.character.x + 
+                        (totalMovement) * math.cos(angle))
+                vectY = (undershot.y - app.character.y -
+                        (totalMovement) * math.sin(angle))
+                
+                print(f'{undershot.x} - {app.character.x} + {totalMovement} * {math.cos(angle)} = {vectX}')
+                print(f'{undershot.y} - {app.character.y} - {totalMovement} * {math.sin(angle)} = {vectY}')
+                print('movement between un and over') # problem area
+                print(f' Angle: {math.degrees(angle)}  X: {vectX},  Y:{vectY}')
+                return vectX, vectY
+
+    elif initialDir < 0: 
+        # speed calculations move by at least one jump
+        # if initial position overestimated --> projectedDistanceMoved is an overestimate
         print('overestimated initial point')
-        angle = math.atan2((overshot.y - undershot.y), overshot.x - undershot.x)
-        vectX = (undershot.x - app.character.x + 
-        (remainingInterPointDistance + initialError * initialDir) * math.cos(math.radians(angle)))
-        vectY = (undershot.y - app.character.y - 
-        (remainingInterPointDistance + initialError * initialDir) * math.sin(math.radians(angle)))
-        print(f'Angle: {angle}  X: {vectX},  Y:{vectY}')
+        remainingDistanceAfterMovement = remainingInterPointDistance + initialError * initialDir
 
-        if 
-
-        return vectX, vectY
+        if remainingDistanceAfterMovement > lastJump:
+            remainder = remainingDistanceAfterMovement - lastJump
+            overOverShotIndex = counter + 2
+            if overOverShotIndex >= len(app.terrain.pointsList[app.character.currentCurve]):
+                overOverShot = assignCurvePoint2(app, 0, app.character.currentCurve + 1)
+            else:
+                overOverShot = assignCurvePoint(app, overOverShotIndex)
+            angle = math.atan2(overOverShot.y - overshot.y, overOverShot.x - overshot.x)
+            vectX = (overshot.x - app.character.x +
+                        (remainder) * math.cos(angle))
+            vectY = (overshot.y - app.character.y +
+                        (remainder) * math.sin(angle))
+            return vectX, vectY
+        
+        else:
+            angle = math.atan2(overshot.y - undershot.y, overshot.x - undershot.x)
+            vectX = (undershot.x - app.character.x + 
+            (remainingInterPointDistance + initialError * initialDir) * math.cos(angle))
+            vectY = (undershot.y - app.character.y +
+            (remainingInterPointDistance - (initialError * initialDir)) * math.sin(angle))
+            print(f' X: {vectX},  Y:{vectY}')
+            return vectX, vectY
+        
     elif initialDir > 0: # if initial position underestimated --> projectedDistanceMove is an underestimate
         # check if initial error + undershot correction is larger than distance from undershot to overshot point
         if remainingInterPointDistance + initialError > lastJump:
@@ -300,8 +391,8 @@ def moveCharacter(app):
                 angle = math.atan2((afterOverShot.y - overshot.y), afterOverShot.x - overshot.x)
             
             remainingDistanceAfterCorrection = lastJump - (remainingInterPointDistance + initialError)
-            vectX = overshot.x - app.character.x - remainingDistanceAfterCorrection * math.cos(math.radians(angle))
-            vectY = overshot.y - app.character.y - remainingDistanceAfterCorrection * math.sin(math.radians(angle))
+            vectX = overshot.x - app.character.x - remainingDistanceAfterCorrection * math.cos(angle)
+            vectY = overshot.y - app.character.y - remainingDistanceAfterCorrection * math.sin(angle)
             print(f'corrected backwards by: {remainingDistanceAfterCorrection} in {angle} direction')
             print(f'X: {vectX},  Y:{vectY}')
             return vectX, vectY
@@ -310,9 +401,9 @@ def moveCharacter(app):
             print('underestimated initial point, within bounds of under-over')
             angle = math.atan2((overshot.y - undershot.y),overshot.x - undershot.x)
             vectX = (undershot.x - app.character.x + 
-            (remainingInterPointDistance + initialError * initialDir) * math.cos(math.radians(angle)))
+            (remainingInterPointDistance + initialError * initialDir) * math.cos(angle))
             vectY = (undershot.y - app.character.y - 
-            (remainingInterPointDistance + initialError * initialDir) * math.sin(math.radians(angle)))
+            (remainingInterPointDistance + initialError * initialDir) * math.sin(angle))
             print(f'Angle: {angle}  X: {vectX},  Y:{vectY}')
             return vectX, vectY
 
@@ -476,16 +567,16 @@ def redrawAll(app):
 
 
     if app.gameState == 'playing':
-        # drawRect(app.character.x, app.character.y, 15, 7, fill='coral', border=None, borderWidth=2, dashes=False,      
-        #             rotateAngle = app.character.orientation, align = 'center')
+        drawRect(app.character.x, app.character.y, 15, 7, fill='coral', border=None, borderWidth=2, dashes=False,      
+                    rotateAngle = app.character.orientation, align = 'center')
 
-        drawImage(app.character.linkGrounded, playerImageCenterX, playerImageCenterY+3, 
-                  width = app.character.width, height = app.character.width, align = 'center', 
-                  rotateAngle = app.character.orientation)
+        # drawImage(app.character.linkGrounded, playerImageCenterX, playerImageCenterY+3, 
+        #           width = app.character.width, height = app.character.width, align = 'center', 
+        #           rotateAngle = app.character.orientation)
         
-        for i in range(len(app.terrain.controlList)):
-            firstPoint = app.terrain.controlList[i][0]
-            drawCircle(firstPoint.x, firstPoint.y, 10, fill='red')
+        # for i in range(len(app.terrain.controlList)):
+        #     firstPoint = app.terrain.controlList[i][0]
+        #     drawCircle(firstPoint.x, firstPoint.y, 10, fill='red')
         # drawLabel(math.floor(app.character.orientation), 30, 30)
 
     if app.gameState == 'dead':
