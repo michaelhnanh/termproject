@@ -7,7 +7,7 @@ import math, random
 
 class Terrain:
     xray = []
-    lineSplit = 25
+    lineSplit = 75
     segment = 1 / lineSplit
 
     def __init__(self, p1, p2, p3, p4):
@@ -40,9 +40,7 @@ class Terrain:
     def fullGenerator(self, width):
         # controlPointGenerator takes in p3, p4, and width
         # --> spits out 4 new control points --> add to a list --> add list to controlList
-        print('\ngenerating points with: ', self.p1, self.p2, self.p3, self.p4, '\n')
         self.p1, self.p2, self.p3, self.p4, scalar = self.controlPointGenerator(width)
-        print('\ngenerated points: ',self.p1, self.p2, self.p3, self.p4)
         self.controlList.append([self.p1, self.p2, self.p3, self.p4])
         
         # feed control points into genCurve --> spits out list of points for drawing
@@ -126,14 +124,11 @@ class Terrain:
         # c0 should require the tangent of p41 to be upward sloping (or negative, in this instance)
         if p4.y > p5.y:
             continuity = random.randrange(1, 20)
-            if True: 
-                # print('0')
-                return 1
+            if continuity > 13: 
+                return 0
             else: 
-                # print('1')
                 return 1
         else:
-            # print('1')
             return 1
 
     # generate new curve 3 when curve 1 is passed --> curve 2 is kept in memory
@@ -162,26 +157,21 @@ class Terrain:
             p22 = Point(self.p4.x + lengthp22 * math.cos(anglep22), 
                         self.p4.y - lengthp22 * math.sin(anglep22))
             
-        print('p22: ',p22)
         # if continuity == 1 do nothing
 
-        # limit slope between 6 - 45 degrees
+        # limit slope between 0 - 45 degrees
         anglep42 = math.radians(normalRandom(325, 354, 1))
         # p32 can be below or above p42, controlling whether or not the curve will flick up or down
         if scalar > 1:
             anglep32 = math.radians(normalRandom(135, 205, 1))
         else:
             anglep32 = math.radians(normalRandom(135, 225, 1))
-        # anglep32 = math.radians(90)
 
         p42 = Point(p12.x + totalLength * math.cos(anglep42), p12.y - (totalLength * math.sin(anglep42)))
         lengthp32 = totalLength / 3 
         p32 = Point(p42.x + lengthp32 * math.cos(anglep32), p42.y - (lengthp32 * math.sin(anglep32)))
-        print('p32: ',p32)
-        print('p42: ',p42)
         self.continuityList.append(continuity)
         
-        # print(self.p4, p22, p32, p42)
         return p12, p22, p32, p42, scalar
         
 def normalScalar():

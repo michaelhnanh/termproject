@@ -16,13 +16,17 @@ class Character:
         self.rotating = False
         self.platformed = False
         
-        self.vert = 10
-        self.rotationRate = 5
+        self.vert = 8
+        self.weight = 60
+        self.rotationRate = 4
         self.rotatedAmount = 0
         self.rotationMomentum = 0
-        self.speed = 50
-        self.momentum = 0
-        self.momentumOrientation = 0
+        self.speed = 15
+        self.momentumX = 0
+        self.momentumY = 0
+        self.charging = False
+        self.chargingTimer = 0
+        self.chargeAmount = 1
 
         self.positionX = 0.5 # starts off at the middle of the screen --> launches out --> smoothly goes back to width/4
         self.positionY = 0.5
@@ -31,15 +35,14 @@ class Character:
         self.posOnCurve = 0
 
         # sprite links --> key frames and 1 in-between
-        self.linkGrounded = './Sprites/austinBase.png'
-        self.linkGroundtoUn = None
-        self.linkUngrounded = None
+        self.linkGrounded = './Sprites/austinGrounded.png'
 
-        self.linkUntoRotating1 = None
-        self.linkUntoRotating2 = None
+        self.linkUnGrounded = './Sprites/austinUnGrounded.png'
+
         self.linkRotating = None
 
         self.linkHitGround = None
+
         self.linkTripped = None
 
         # also the issue of the player losing velocity while in the air --> how
@@ -51,9 +54,6 @@ class Character:
     # character should be controlled at the base of feet --> just a Point(x,y)
     # character sprite is centered at a point height/2 away from base, perpendicular to orientation of character, with the sprite
     # rotated in that orientation
-
-    def rotate(self):
-        pass
 
     def drop(self):
         pass

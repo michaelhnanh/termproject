@@ -9,30 +9,37 @@ from mainTools import *
 import math, time, random
 
 def onAppStart(app):
-    scale = 75
-    app.width = 16 * scale
-    app.height = 9 * scale
+    app.scale = 75
+    app.width = 16 * app.scale
+    app.height = 9 * app.scale
     app.score = 0
     app.timeofday = 0
     app.gravity = 0.3
     app.terminal = 20
-    app.drag = 0.5
-    app.dragLimit = 2
+    app.naturalResistance = 0.2
+    app.minSpeed = 10
+    app.distanceTraveled = 0
+    app.score = 0
 
-    # superfluous things
-    app.settings = Point(app.width * 1 / 8, app.height * 1 / 7)
-    app.characterSelect = Point(app.width * 7 / 8, app.height * 1 / 7)
+    app.fontTitle = 'Bowlby One'
+    app.fontBig = 'Domine Bold'
+    app.fontMedium = 'Domine Medium'
+    app.fontSmall = 'Domine'
+    app.textColor = rgb(21, 22, 23)
+    app.backgroundColors = [rgb(203, 245, 229), rgb(250, 224, 192)]
+    #rgb(194, 252, 255), rgb(0, 213, 255)
+    app.atmosphericColors = [rgb(0, 252, 156), rgb(255, 115, 0)]
+
+    app.colorSelect = random.randint(0, len(app.backgroundColors) - 1)
 
     # game timings  
-    app.stepsPerSecond = 1 # fixed cus like 60 frames per second u know
-    app.stepNum = 0
+    app.stepsPerSecond = 60 # fixed cus like 60 frames per second u know
+    app.stepNum = 4
     app.gameState = 'startScreen'
 
     # world movement
-    app.moveWorldVectX = 0
-    app.moveWorldVectY = 0
-    app.characterMovementVectX = 0
-    app.characterMovementVectY = 0
+    app.characterMovementVectX = 15
+    app.characterMovementVectY = 0 
 
     p1 = Point(0, app.height * 6 / 7)
     p2 = Point(app.width / 4, app.height * 4 / 6)
@@ -45,15 +52,35 @@ def onAppStart(app):
     app.character.grounded = False
     app.character.rotating = False
     app.character.orientation = 0
-    app.speedMax = 0
+    app.speedMax = 50
     app.angleTakeOff = 0
-
+    app.anglePortionToCorrect = 0
     app.groundPoint = None
+    app.storedOrientation = 0
+
+    # ui variables
+    app.startFade = 0
+
+    app.resetFade = 0
+
+    # 
+
+    app.settings = Point(app.width * 1 / 8, app.height * 1 / 7)
+    app.characterSelect = Point(app.width * 7 / 8, app.height * 1 / 7)
 
 def restartGame(app):
+    app.score = 0
+    app.timeofday = 0
+    app.gravity = 0.3
+    app.terminal = 20
+    app.naturalResistance = 0.2
+    app.minSpeed = 10
+    app.distanceTraveled = 0
+    app.score = 0
+
     app.moveWorldVectX = 0
     app.moveWorldVectY = 0
-    app.characterMovementVectX = 0
+    app.characterMovementVectX = 15
     app.characterMovementVectY = 0
 
     p1 = Point(0, app.height * 6 / 7)
@@ -71,25 +98,30 @@ def restartGame(app):
     app.character.grounded = False
     app.character.rotating = False
     app.character.orientation = 0
+    app.speedMax = 50
+    app.angleTakeOff = 0
+    app.anglePortionToCorrect = 0
+    app.groundPoint = None
+    app.storedOrientation = 0
 
     app.gameState = 'startScreen'
 
 def onKeyPress(app, key):
     steps = [1, 5, 15, 30, 60]
-
     if key == 'p':          
         app.stepNum += 1
         app.stepNum = app.stepNum % len(steps)  
         app.stepsPerSecond = steps[app.stepNum]
+
     if key == 'o':
         app.stepNum -= 1
         if app.stepNum < 0:
             app.stepNum = len(steps) - 1
         app.stepsPerSecond = steps[app.stepNum]
+
     if app.gameState == 'startScreen':
         if (key == 'W' or 'w' or 'space' or 'up'):
-            app.gameState = 'playing'
-            print(app.gameState)
+            app.gameState = 'prePlay'
 
     elif app.gameState == 'playing':
         if (key == 'W' or key == 'w' or key == 'space' or key == 'up') and app.character.grounded == True:
@@ -98,13 +130,15 @@ def onKeyPress(app, key):
             app.angleTakeOff = getOrientation(app)
             jump(app)
             app.speedMax = app.characterMovementVectX
+            app.character.grounded = False
+            moveWorld(app)
         if key == 'escape':
             if app.gameState == 'playing':
                 app.gameState = 'pause'
                 print('paused')
-        # if app.character.platformed:
-        #     if key == 'down' or key == 's' or key == 'S':
-        #         app.character.drop()
+            if app.gameState == 'pause':
+                app.gameState = 'playing'
+                print('playing')
 
     elif app.gameState == 'dead':
         if key:
@@ -120,6 +154,7 @@ def onKeyRelease(app, key):
     if app.gameState == 'playing':
         if app.character.rotating == True:
             app.character.rotating = False
+            app.anglePortionToCorrect = app.character.orientation - app.angleTakeOff
 
 def onKeyHold(app, keys):
     if app.gameState == 'playing':
@@ -132,134 +167,145 @@ def onMousePress(app, mouseX, mouseY):
     pass
 
 def onStep(app):
-    if app.gameState == 'playing':
+    if app.gameState == 'startScreen':
+        if app.startFade < 100:
+            app.startFade += 1
+    elif app.gameState == 'prePlay':
+        if app.startFade > 0:
+            app.startFade -= 1
+        if app.startFade <= 0:
+            # preGame alto enters sequence
+            app.gameState = 'playing'
+
+    elif app.gameState == 'playing':
+        app.distanceTraveled += app.character.speed / 100
         worldMovementVectX = 0
         worldMovementVectY = 0
+        if app.character.orientation < -180:
+            app.character.orientation += 360  
 
         # detect when need to generate new terrain --> x coordinate of the oldest/first curve is moved past the width of the app
         if app.terrain.controlList[-2][-1].x <= app.width:
             if not app.terrain.curvesPassed[0]:
-                print('\ncurve that just passed: ',app.terrain.controlList[0])
                 app.terrain.fullGenerator(app.width)
                 app.terrain.curvesPassed[0] = True
 
         # detect when curve has passed x = 0 --> controlList[0][-1].x < 0 (or another variable)
         # remove from pointsList, remove from controlList
         if app.terrain.controlList[0][-1].x < 0:
-            print('\ncurve removed: ',app.terrain.controlList[0])
             app.terrain.controlList.pop(0)
             app.terrain.pointsList.pop(0)
             app.terrain.curvesPassed.pop(0)
             app.terrain.continuityList.pop(0)
             app.character.currentCurve -= 1
-            print('\n0th curve removed\n')
-
-        # this could be made very accurate by reparametrizing the points to be evenly spaced in every curve --> do that later
-        
-        # make character slide to positionX and positionY calculations first btw
 
         if app.character.grounded: 
-            setCurrentCurve(app)
-            app.character.posOnCurve = findClosestPosOnCurve(app)
-            # if not continuous --> launch off
-            if app.terrain.continuityList[app.character.currentCurve] == 0:
-                slideOff(app)
-            # print(f'curve i am currently on has c{app.terrain.continuityList[app.character.currentCurve]} continuity, next has c{app.terrain.continuityList[app.character.currentCurve + 1]} continuity')
+            if app.character.charging == True:
+                app.character.chargingTimer += 1
+            if app.character.chargingTimer == 180:
+                app.character.charging = False
+                app.character.chargingTimer = 0
 
-            # movement of curve
-            # slideCharacter(app)
-            print('\n\n')
-            app.characterMovementVectX, app.characterMovementVectY = moveCharacter(app)
+            app.character.currentCurve = findCurrentCurve(app)
+            app.character.posOnCurve = findClosestPosOnCurve(app)
+
             app.character.orientation = getOrientation(app)
+
+            # if not continuous --> launch off
+
+            # movement along curve --> this is important
+            app.characterMovementVectX, app.characterMovementVectY = moveCharacter(app)
+            
+            curveReCalc = findCurrentCurve(app)
+            posReCalc = findClosestPosOnCurve(app)
+
+
+            if (app.terrain.continuityList[curveReCalc] == 0):
+                slideOff(app)
+                app.character.orientation = app.storedOrientation
+            else:
+                app.character.orientation = getOrientation(app)
+
+            # changing orientation of player character
+
             if abs(app.character.orientation) > 180:
                 app.character.orientation += 180
-            moveWorld(app, worldMovementVectX, worldMovementVectY)
 
+            # momentum calculations
+            app.character.speed += app.gravity * 1.5 * math.sin(math.radians(app.character.orientation))
+                # as orientation becomes negative as character tilts upwards, 
+                # it can actually be used to slow down character when going up slopes --> great
+            app.character.speed -= app.naturalResistance  # friction + air resistance
+
+            if app.character.speed < app.minSpeed:
+                app.character.speed = app.minSpeed
+            # never dip below a certain amount or the game stops...
+            
+            # movesWorld
+            app.storedOrientation = app.character.orientation
+            moveWorld(app)
         else: 
-            moveWorld(app, worldMovementVectX, worldMovementVectY)
-            setCurrentCurve(app)
-            orientationOfGround = getOrientation(app)
+            # initializing important variables
+            app.character.currentCurve = findCurrentCurve(app)
             app.character.posOnCurve = findClosestPosOnCurve(app)
-            groundPointApproximate = assignCurvePoint(app, app.character.posOnCurve)
-            app.groundPoint = groundPointApproximate
-            error = distance(app.character, groundPointApproximate)
+            orientationOfGround = getOrientation(app)  
             
             if app.characterMovementVectY < app.terminal:
-                app.characterMovementVectY += app.gravity # gravity   
+                app.characterMovementVectY += app.gravity  # gravity   
+                app.character.speed += app.gravity * 2 * math.sin(math.radians(app.character.orientation))
 
-            if app.characterMovementVectX > app.speedMax / app.dragLimit:
-                app.characterMovementVectX *= 0.99
+            app.character.speed -= app.naturalResistance # friction + air resistance
+            # app.characterMovementVectX -= app.naturalResistance
+
+            if app.character.speed < app.minSpeed:
+                app.character.speed = app.minSpeed
             
             if app.character.rotating:
                 app.character.orientation -= app.character.rotationRate
                 app.character.rotatedAmount += app.character.rotationRate
             elif app.character.rotating == False and app.character.rotatedAmount < 180: # should recenter character --> should have an exception tho uhhhhhhhhhhhhhhhhhhh
-                app.character.orientation += ((orientationOfGround - app.angleTakeOff) / 30)
-                
+                if app.character.orientation < app.angleTakeOff:
+                    app.character.orientation -= ((app.anglePortionToCorrect) / 100)
+
             # ground collision check
-            if groundPointApproximate.y <= app.character.y:
-                print('ground collision detected')
-                app.character.grounded = True
-                if app.character.x > groundPointApproximate.x:
-                    if app.character.posOnCurve + 2 >= len(app.terrain.pointsList[app.character.currentCurve]):
-                        nextPoint = assignCurvePoint2(app, 0, app.character.currentCurve + 1)
-                    else:
-                        nextPoint = assignCurvePoint(app, app.character.posOnCurve + 2)
-                    angleToNextPoint = math.atan2(nextPoint.y - groundPointApproximate.y, nextPoint.x - groundPointApproximate.x)
-                    vectX = groundPointApproximate.x - app.character.x + error * math.cos(angleToNextPoint)
-                    vectY = groundPointApproximate.y - app.character.y + error * math.sin(angleToNextPoint)
-                else:
-                    if app.character.posOnCurve - 2 < 0:
-                        lastPoint = assignCurvePoint2(app, 0, app.character.currentCurve - 1)
-                    else:
-                        lastPoint = assignCurvePoint(app, app.character.posOnCurve - 2)
-                    angleToLastPoint = math.atan2(lastPoint.y - groundPointApproximate.y, lastPoint.x - groundPointApproximate.x)
-                    vectX = groundPointApproximate.x - app.character.x + error * math.cos(angleToLastPoint)
-                    vectY = groundPointApproximate.y - app.character.y + error * math.sin(angleToLastPoint)
-                
-                app.character.rotatedAmount = 0
+            vectX, vectY = groundCollisionCheck(app)
+            
+            if vectX != 0 and vectY != 0:
                 app.characterMovementVectX = vectX
                 app.characterMovementVectY = vectY
-
-                if app.character.orientation < -180:
-                    app.character.orientation += 360                
-                    # orientation never goes more than 180 degrees and less than -180 degrees
-                if (app.character.orientation + 60 < orientationOfGround) or (app.character.orientation - 60 > orientationOfGround):
-                    # print(f'character orientation: {app.character.orientation} ground orientation: {orientationOfGround} --> dead')
+                # death check
+                if (app.character.orientation + 45 < orientationOfGround) or (app.character.orientation - 45 > orientationOfGround):
                     app.gameState = 'dead'
-            # moveWorld(app, worldMovementVectX, worldMovementVectY)
-                    
-            #     # check if it if an over or under estimate in x value
-            #     # then check if 
+                else:
+                    if app.character.rotatedAmount > 180:
+                        app.character.speed += app.character.chargeAmount
+                        app.character.charging = True
+                app.character.rotatedAmount = 0
+            moveWorld(app)
     
     elif app.gameState == 'pause':
         pass
 
-
 def jump(app):
-    app.character.grounded = False
-    orientation = math.radians(app.character.orientation)
+    app.character.charging = False
+    orientation = math.radians(-app.character.orientation)
     orientationY = math.radians(app.character.orientation - 90)
-    if app.character.orientation > 0:
-        app.characterMovementVectX = (app.character.vert + app.character.momentum) * math.cos(orientation)
-        app.characterMovementVectY = (app.character.vert) * math.sin(orientation - 90)
-    elif app.character.orientation > 20:
-        app.characterMovementVectX = (app.character.momentum) * math.cos(orientation)
-        app.characterMovementVectY = (app.character.vert) * math.sin(orientationY)
-    else:
-        app.characterMovementVectX = (app.character.momentum) * math.cos(orientation)
-        app.characterMovementVectY = (app.character.vert) * math.sin(orientationY)
-    # app.characterMovementVectX = (app.character.momentum) * math.cos(math.radians(app.character.orientation)) + (app.character.vert) * math.cos(math.radians(app.character.orientation - 90))
-    print(f'jumpX: {app.characterMovementVectX} jumpY: {app.characterMovementVectY}')
+
+    app.characterMovementVectX = (app.character.speed) * math.cos(orientation)
+    app.characterMovementVectY = (app.character.vert) * math.sin(orientationY)
     
 def slideOff(app):
     app.character.grounded = False
     app.terrain.continuityList[app.character.currentCurve] = 1
+    orientation = math.radians(-app.storedOrientation)
 
+    app.characterMovementVectX = (app.character.speed) * math.cos(orientation)
+    app.characterMovementVectY = -1 * (app.character.speed) * math.sin(orientation)
+    app.character.rotating = False
+    app.anglePortionToCorrect = 0
 
 # function to move terrain + hazards + platforms + chasers + character
-def moveWorld(app, worldMovementVectX, worldMovementVectY):
-    # if app.moveWorldVectX != 0 or app.moveWorldVectY != 0:
+def moveWorld(app):
     for curvePoints in app.terrain.pointsList:
         for counter in range(0, len(curvePoints), 2):
             curvePoints[counter] -= (app.characterMovementVectX)
@@ -271,11 +317,7 @@ def moveWorld(app, worldMovementVectX, worldMovementVectY):
 
 def redrawAll(app):
     # background --> draw series of shifting polygons
-
-    # terrain --> draw polygon --> select which curves to draw based on the position of 
-    # control points unpack selected pointsList indexes into drawPolygon, starting and ending with anchor points
-    terrainGradient = gradient('white', rgb(173, 237, 208), start='bottom')
-    drawRect(0, 0, app.width, app.height, fill=terrainGradient)
+    drawRect(0, 0, app.width, app.height, fill=app.backgroundColors[app.colorSelect])
 
     drawTo = 1
     for index in range(1, len(app.terrain.controlList)):
@@ -288,42 +330,44 @@ def redrawAll(app):
     for points in validPoints: # point is a list
         drawnpointsList.extend(points)
             
-    anchorStart = [0, app.height] # has to be [x,y] to be placed into drawPolygon, y determined by last controlpoint
+    anchorStart = [0, app.height]
     anchorEnd = [app.width, app.height]
 
-    drawPolygon(*anchorStart, *drawnpointsList, *anchorEnd, fill = 'lightgreen')
-
-    if app.gameState == 'startScreen':
-        drawLabel("AUSTIN'S", app.width/2, app.height/5, align = 'center', size = 150, font = 'monospace', bold = True)
-        drawLabel("ADVENTURE", app.width/2, app.height/5 + 90, align = 'center', size = 100, font = 'monospace', bold = True)
-        drawLabel("Press any key to play", app.width/2, app.height/5*4, align = 'center', size = 15, font = 'monospace', bold = False)
-        drawLabel("Press W, space, or the up arrow key to jump/flip", app.width/2, app.height/5*4 + 15, align = 'center', size = 15, font = 'monospace', bold = False)
+    # the terrain!
+    drawPolygon(*anchorStart, *drawnpointsList, *anchorEnd, fill = 'white')
 
     imageOffsetAngle = app.character.orientation - 90
     playerImageCenterX = app.character.x + app.character.width/2 * math.cos(math.radians(imageOffsetAngle))
     playerImageCenterY = app.character.y + app.character.height/2 * math.sin(math.radians(imageOffsetAngle))
 
+    if app.gameState == 'startScreen' or app.gameState == 'prePlay':
+        drawLabel("AUSTIN'S", app.width/2, app.height/5, align = 'center', size = 135, 
+                  font = app.fontTitle, bold = True, fill = app.textColor, opacity = app.startFade)
+        drawLabel("ADVENTURE", app.width/2, app.height/5 + 110, align = 'center', size = 100, 
+                  font = app.fontTitle, bold = False, fill =app.textColor, opacity = app.startFade)
+        drawLabel("Press any key to play", app.width/2, app.height/5*4, align = 'center', size = 15, 
+                  font = app.fontSmall, bold = False, fill =app.textColor, opacity = app.startFade)
+        drawLabel("Press W, space, or the up arrow key to jump/flip", app.width/2, app.height/5*4 + 18, align = 'center', size = 15, 
+                  font = app.fontSmall, bold = False, fill =app.textColor, opacity = app.startFade)
+        drawLabel("Hold to flip", app.width/2, app.height/5*4 + 36, align = 'center', 
+                  size = 15, font = app.fontSmall, bold = False, fill = app.textColor, opacity = app.startFade)
 
-    if app.gameState == 'playing':
-        drawRect(app.character.x, app.character.y, 15, 7, fill='coral', border=None, borderWidth=2, dashes=False,      
-                    rotateAngle = app.character.orientation, align = 'center')
+    elif app.gameState == 'playing' or app.gameState == 'dead':
+        if app.character.grounded == True:
+            playerImage = app.character.linkGrounded
+        elif app.character.grounded == False:
+            playerImage = app.character.linkUnGrounded
 
-        # drawImage(app.character.linkGrounded, playerImageCenterX, playerImageCenterY+3, 
-        #           width = app.character.width, height = app.character.width, align = 'center', 
-        #           rotateAngle = app.character.orientation)
-        
-        # for i in range(len(app.terrain.controlList)):
-        #     firstPoint = app.terrain.controlList[i][0]
-        #     drawCircle(firstPoint.x, firstPoint.y, 10, fill='red')
-        # drawLabel(math.floor(app.character.orientation), 30, 30)
+        drawImage(playerImage, playerImageCenterX, playerImageCenterY+4, 
+                  width = app.character.width, height = app.character.width, align = 'center', 
+                  rotateAngle = app.character.orientation)
+
+        drawLabel(f'total distance: {math.floor(app.distanceTraveled)}', 80, 75)
+        drawLabel(f"{math.floor(app.distanceTraveled)}m", app.width - 30, 40, align = 'right', 
+                  size = 30, font = app.fontSmall, bold = False, fill = app.textColor)
 
     if app.gameState == 'dead':
-    #     drawRect(app.character.x, app.character.y, 15, 7, fill='coral', border=None, borderWidth=2, dashes=False,      
-    #                 rotateAngle = app.character.orientation, align = 'center')
-        drawImage(app.character.linkGrounded, playerImageCenterX, playerImageCenterY+3, 
-                  width = app.character.width, height = app.character.width, align = 'center', 
-                rotateAngle = app.character.orientation)
-        drawLabel("GAME OVER", app.width/2, app.height/5 , align = 'center', size = 100, font = 'monospace', bold = True)
+        drawLabel("Back to UHS", app.width/2, app.height/5 , align = 'center', size = 100, font = app.fontTitle, bold = True)
     
     # if app.character.grounded == False and app.groundPoint != None:
     #     drawCircle(app.groundPoint.x, app.groundPoint.y, 10, fill='cyan')
@@ -352,6 +396,13 @@ def redrawAll(app):
 
     # if app.gameState == 'pause':
         # overlay pause screen on top
+                    
+    # drawLabel(f'orientation: {math.floor(app.character.orientation)}', 80, 30)
+    # drawLabel(f'speed: {math.floor(app.character.speed)}', 80, 45)
+    # drawLabel(f'rotated amount: {math.floor(app.character.rotatedAmount)}', 80, 60)
+
+    # atmospheric layer on top
+    drawRect(0, 0, app.width, app.height, fill=app.atmosphericColors[app.colorSelect], opacity = 10)
 
 # superfluous UI things
 
