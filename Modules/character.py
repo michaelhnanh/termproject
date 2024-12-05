@@ -39,7 +39,7 @@ class Character:
 
         self.linkUnGrounded = './Sprites/austinUnGrounded.png'
 
-        self.linkRotating = None
+        self.linkRotating = './Sprites/austinRotating.png'
 
         self.linkHitGround = None
 

@@ -27,7 +27,6 @@ def onAppStart(app):
     app.fontSmall = 'Domine'
     app.textColor = rgb(21, 22, 23)
     app.backgroundColors = [rgb(203, 245, 229), rgb(250, 224, 192)]
-    #rgb(194, 252, 255), rgb(0, 213, 255)
     app.atmosphericColors = [rgb(0, 252, 156), rgb(255, 115, 0)]
 
     app.colorSelect = random.randint(0, len(app.backgroundColors) - 1)
@@ -67,6 +66,11 @@ def onAppStart(app):
 
     app.settings = Point(app.width * 1 / 8, app.height * 1 / 7)
     app.characterSelect = Point(app.width * 7 / 8, app.height * 1 / 7)
+
+    app.adventureSong = Sound('../Music/adventure.mp3')
+    app.skiing = Sound('../Music/skiingFX.mp3')
+    app.jumping = Sound('../Music/jumpFX.mp3')
+    app.adventureSong.play(restart = True)
 
 def restartGame(app):
     app.score = 0
@@ -128,6 +132,7 @@ def onKeyPress(app, key):
             app.characterMovementVectY = 0
             app.characterMovementVectX = 0
             app.angleTakeOff = getOrientation(app)
+            app.jumping.play(restart = True, loop = False)
             jump(app)
             app.speedMax = app.characterMovementVectX
             app.character.grounded = False
@@ -200,6 +205,8 @@ def onStep(app):
             app.character.currentCurve -= 1
 
         if app.character.grounded: 
+            app.skiing.play(restart = False, loop = True)
+
             if app.character.charging == True:
                 app.character.chargingTimer += 1
             if app.character.chargingTimer == 180:
@@ -221,6 +228,7 @@ def onStep(app):
 
 
             if (app.terrain.continuityList[curveReCalc] == 0):
+                app.jumping.play(restart = True, loop = False)
                 slideOff(app)
                 app.character.orientation = app.storedOrientation
             else:
@@ -244,7 +252,7 @@ def onStep(app):
             # movesWorld
             app.storedOrientation = app.character.orientation
             moveWorld(app)
-        else: 
+        elif app.character.grounded == False:
             # initializing important variables
             app.character.currentCurve = findCurrentCurve(app)
             app.character.posOnCurve = findClosestPosOnCurve(app)
@@ -293,6 +301,7 @@ def jump(app):
 
     app.characterMovementVectX = (app.character.speed) * math.cos(orientation)
     app.characterMovementVectY = (app.character.vert) * math.sin(orientationY)
+    app.skiing.pause()
     
 def slideOff(app):
     app.character.grounded = False
@@ -303,6 +312,7 @@ def slideOff(app):
     app.characterMovementVectY = -1 * (app.character.speed) * math.sin(orientation)
     app.character.rotating = False
     app.anglePortionToCorrect = 0
+    app.skiing.pause()
 
 # function to move terrain + hazards + platforms + chasers + character
 def moveWorld(app):
@@ -337,6 +347,7 @@ def redrawAll(app):
     drawPolygon(*anchorStart, *drawnpointsList, *anchorEnd, fill = 'white')
 
     imageOffsetAngle = app.character.orientation - 90
+    
     playerImageCenterX = app.character.x + app.character.width/2 * math.cos(math.radians(imageOffsetAngle))
     playerImageCenterY = app.character.y + app.character.height/2 * math.sin(math.radians(imageOffsetAngle))
 
@@ -357,42 +368,25 @@ def redrawAll(app):
             playerImage = app.character.linkGrounded
         elif app.character.grounded == False:
             playerImage = app.character.linkUnGrounded
+        
+        if app.character.rotating == True:
+            playerImage = app.character.linkRotating
 
-        drawImage(playerImage, playerImageCenterX, playerImageCenterY+4, 
-                  width = app.character.width, height = app.character.width, align = 'center', 
+        imagewidth, imageheight = getImageSize(playerImage)
+        imageheight = imageheight * 30 / imagewidth
+        imagewidth = 30
+
+        drawImage(playerImage, playerImageCenterX, playerImageCenterY + 4, 
+                  width = imagewidth, height = imageheight, align = 'center', 
                   rotateAngle = app.character.orientation)
 
-        drawLabel(f'total distance: {math.floor(app.distanceTraveled)}', 80, 75)
         drawLabel(f"{math.floor(app.distanceTraveled)}m", app.width - 30, 40, align = 'right', 
                   size = 30, font = app.fontSmall, bold = False, fill = app.textColor)
 
     if app.gameState == 'dead':
         drawLabel("Back to UHS", app.width/2, app.height/5 , align = 'center', size = 100, font = app.fontTitle, bold = True)
-    
-    # if app.character.grounded == False and app.groundPoint != None:
-    #     drawCircle(app.groundPoint.x, app.groundPoint.y, 10, fill='cyan')
-
 
     # overlays --> slide to the outside and disappear when game starts
-
-    # if app.gameState == 'startScreen':
-    #     drawImage() # logo
-    #     drawLabel('Press any key to play', ) 
-    #         # settings
-    #     drawImage()
-    #     drawLabel('Settings')
-    #         # character select
-    #     drawImage()
-    #     drawLabel('Characters')
-    # if app.gameState == 'playing':
-    #     drawImage() # logo
-    #     drawLabel('Press any key to play', ) 
-    #         # settings
-    #     drawImage()
-    #     drawLabel('Settings')
-    #         # character select
-    #     drawImage()
-    #     drawLabel('Characters')
 
     # if app.gameState == 'pause':
         # overlay pause screen on top
