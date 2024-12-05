@@ -140,6 +140,7 @@ def groundCollisionCheck(app):
     groundPointApproximate = assignCurvePoint(app, app.character.posOnCurve)
     error = distance(app.character, groundPointApproximate)
     if groundPointApproximate.y <= app.character.y:
+        app.landing.play(restart = True, loop = False)
         app.character.grounded = True
         if app.character.x > groundPointApproximate.x:
             if app.character.posOnCurve + 2 >= len(app.terrain.pointsList[app.character.currentCurve]):

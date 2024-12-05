@@ -62,14 +62,13 @@ def onAppStart(app):
 
     app.resetFade = 0
 
-    # 
-
     app.settings = Point(app.width * 1 / 8, app.height * 1 / 7)
     app.characterSelect = Point(app.width * 7 / 8, app.height * 1 / 7)
 
     app.adventureSong = Sound('../Music/adventure.mp3')
     app.skiing = Sound('../Music/skiingFX.mp3')
     app.jumping = Sound('../Music/jumpFX.mp3')
+    app.landing = Sound('../Music/landingFX.mp3')
     app.adventureSong.play(restart = True)
 
 def restartGame(app):
@@ -137,13 +136,6 @@ def onKeyPress(app, key):
             app.speedMax = app.characterMovementVectX
             app.character.grounded = False
             moveWorld(app)
-        if key == 'escape':
-            if app.gameState == 'playing':
-                app.gameState = 'pause'
-                print('paused')
-            if app.gameState == 'pause':
-                app.gameState = 'playing'
-                print('playing')
 
     elif app.gameState == 'dead':
         if key:
@@ -165,8 +157,7 @@ def onKeyHold(app, keys):
     if app.gameState == 'playing':
         if ('space' in keys or 'w' in keys or 'W' in keys or 'up' in keys) and (app.character.grounded == False):
             app.character.rotating = True
-        elif 'escape' in keys:
-            app.gameState = 'pause'
+
 
 def onMousePress(app, mouseX, mouseY):
     pass
@@ -363,7 +354,7 @@ def redrawAll(app):
         drawLabel("Hold to flip", app.width/2, app.height/5*4 + 36, align = 'center', 
                   size = 15, font = app.fontSmall, bold = False, fill = app.textColor, opacity = app.startFade)
 
-    elif app.gameState == 'playing' or app.gameState == 'dead':
+    elif app.gameState == 'playing' or app.gameState == 'dead' or app.gameState == 'pause':
         if app.character.grounded == True:
             playerImage = app.character.linkGrounded
         elif app.character.grounded == False:
@@ -390,10 +381,6 @@ def redrawAll(app):
 
     # if app.gameState == 'pause':
         # overlay pause screen on top
-                    
-    # drawLabel(f'orientation: {math.floor(app.character.orientation)}', 80, 30)
-    # drawLabel(f'speed: {math.floor(app.character.speed)}', 80, 45)
-    # drawLabel(f'rotated amount: {math.floor(app.character.rotatedAmount)}', 80, 60)
 
     # atmospheric layer on top
     drawRect(0, 0, app.width, app.height, fill=app.atmosphericColors[app.colorSelect], opacity = 10)
