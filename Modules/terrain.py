@@ -8,7 +8,7 @@ import math, random
 
 class Terrain:
     xray = []
-    lineSplit = 75
+    lineSplit = 50
     segment = 1 / lineSplit
 
     def __init__(self, p1, p2, p3, p4):
@@ -24,6 +24,7 @@ class Terrain:
         self.lengthList = [] # length of the list of points in pointsList corresponding to controlList[0]
         self.continuityList = [1] # continuity figure correlates to p2 of the curve --> first curve has 1 as default
         self.rocksList = [[]]
+        self.treesList = []
 
         self.curvesPassed = []
 
@@ -34,6 +35,10 @@ class Terrain:
         curve = self.genCurve()
         self.lengthList.append(len(curve))
         self.pointsList.append(curve)
+
+        # generating trees for start- new trees every time isn't that cool
+        trees = self.genTrees(curve)
+        self.treesList.append(trees)
 
         self.curvesPassed.append(False)
 
@@ -54,8 +59,11 @@ class Terrain:
         self.lengthList.append(len(curve))
         self.pointsList.append(curve)
 
+        # generating terrain add-ons
         rocks = self.genRocks(curve)
         self.rocksList.append(rocks)
+        trees = self.genTrees(curve)
+        self.treesList.append(trees)
 
         self.curvesPassed.append(False)
 
@@ -91,6 +99,28 @@ class Terrain:
                     rockPositions.append(rock)
 
         return rockPositions
+    
+    def genTrees(self, pointsList):
+        treePositions = []
+        positionsPossible = self.lineSplit
+        preSelect = random.randint(2, positionsPossible//10)
+        
+        for _ in range(preSelect):
+            treeIndex = random.randint(10, positionsPossible - 10) * 2
+
+            treePosition = Point(pointsList[treeIndex], pointsList[treeIndex + 1])
+
+            width = random.randint(60, 100)
+            imageWidth, imageHeight = getImageSize('./Sprites/tree.png')
+            heightNormal = imageHeight * width // imageWidth
+            height = random.randint(heightNormal, heightNormal + 80)
+
+            tree = Tree(treePosition.x, treePosition.y, width, height)
+
+            if treePosition not in treePositions:
+                treePositions.append(tree)
+
+        return treePositions
 
     @staticmethod
     def cubicBezier(p1, p2, p3, p4, t):
@@ -219,18 +249,19 @@ def normalRandom(min, max, step = 1):
     center = min + max
     return (random.randrange(min, max, step) - random.randrange(min, max, step) + center)/2
 
-class Coin:
-    def __init__(self, x, y):
+class Tree:
+    def __init__(self, x, y, width, height):
         self.x = x
         self.y = y
-        self.image = f'./Sprites/coin.png'
+        self.width = width
+        self.height = height
     
     def __repr__(self):
         return f'({self.x}, {self.y})'
     
-    def __eq__(self, coin2):
-        if type(coin2) == Coin:
-            return (self.x == coin2.x) and (self.y == coin2.y) 
+    def __eq__(self, tree2):
+        if type(tree2) == Tree:
+            return (self.x == tree2.x) and (self.y == tree2.y) 
         else:
             return False
 

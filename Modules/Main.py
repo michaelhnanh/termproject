@@ -21,7 +21,7 @@ def onAppStart(app):
     app.jumping = Sound('../Music/jumpFX.mp3')
     app.landing = Sound('../Music/landingFX.mp3')
     app.hit = Sound('../Music/hit.mp3')
-    app.adventureSong.play(restart = True)
+    app.adventureSong.play(restart = True, loop = True)
 
      # graphics and fonts
     app.fontTitle = 'Bowlby One'
@@ -29,6 +29,7 @@ def onAppStart(app):
     app.fontMedium = 'Domine Medium'
     app.fontSmall = 'Domine'
     app.textColor = rgb(21, 22, 23)
+    app.lightTextColor = rgb(45, 47, 48)
     app.backgroundColors = [rgb(203, 245, 229), rgb(250, 224, 192)]
     app.atmosphericColors = [rgb(0, 252, 156), rgb(255, 115, 0)]
 
@@ -44,7 +45,6 @@ def restartGame(app):
     app.naturalResistance = 0.2
     app.minSpeed = 10
     app.distanceTraveled = 0
-    app.score = 0
 
     # game timings  
     app.stepsPerSecond = 60 # fixed cus like 60 frames per second u know
@@ -53,7 +53,7 @@ def restartGame(app):
 
     # world + character movement
     app.characterMovementVectX = 15
-    app.characterMovementVectY = 0 
+    app.characterMovementVectY = -5
     app.cameraMove = False
 
     # initializing terrain
@@ -70,7 +70,7 @@ def restartGame(app):
     app.terrain.startPreGen(app.width)
 
     # initializing Austin
-    app.character = Character(app.width/5, app.height/2)
+    app.character = Character(0, (app.height * 6 / 7) - 200)
     app.character.grounded = False
     app.character.rotating = False
     app.character.orientation = 0
@@ -124,6 +124,7 @@ def onKeyPress(app, key):
         
         if key == 'escape':
             app.gameState = 'pause'
+            app.skiing.pause()
 
     elif app.gameState == 'dead':
         if key:
@@ -132,7 +133,8 @@ def onKeyPress(app, key):
     elif app.gameState == 'pause':
         if key == 'escape':
             app.gameState = 'playing'
-            print('playing')
+            if app.character.grounded == True:
+                app.skiing.play(restart = False, loop = True)
 
 def onKeyRelease(app, key):
     if app.gameState == 'playing':
@@ -149,11 +151,7 @@ def onStep(app):
     if app.gameState == 'startScreen':
         if app.startFade < 100:
             app.startFade += 1
-    # elif app.gameState == 'prePlay':
-    #     if app.startFade > 0:
-    #         app.startFade -= 1
-    #     if app.startFade <= 0:
-    #         app.gameState = 'playing'
+
     elif app.gameState == 'postDead':
         if app.resetFade < 100:
             app.resetFade += 2
@@ -164,14 +162,14 @@ def onStep(app):
         app.resetFade -= 2
             
     elif app.gameState == 'playing':
-        if app.character.x >= app.width/2:
+        if app.character.x >= app.characterTargetX:
             app.cameraMove = True
 
-        if (app.cameraMove == True and 
-            app.character.x != app.characterTargetX and app.character.y != app.characterTargetY):
-            moveCharacterToTargetPosition(app)
+        app.distanceTraveled += app.character.speed / 100
 
-        app.distanceTraveled += app.character.speed // 100
+        app.score += app.character.speed / 300
+
+        # ree
         if app.character.orientation < -180:
             app.character.orientation += 360  
 
@@ -183,18 +181,20 @@ def onStep(app):
 
         # detect when curve has passed x = 0 --> controlList[0][-1].x < 0 (or another variable)
         # remove from pointsList, remove from controlList
+        # remove all things that move past the left side of the screen, essentially
         if app.terrain.controlList[0][-1].x < 0:
             app.terrain.controlList.pop(0)
             app.terrain.pointsList.pop(0)
             app.terrain.curvesPassed.pop(0)
             app.terrain.continuityList.pop(0)
             app.terrain.rocksList.pop(0)
+            app.terrain.treesList.pop(0)
             app.character.currentCurve -= 1
 
+        # character on the ground ############################################################################
         if app.character.grounded: 
             if rockCollisionCheck(app):
                 app.skiing.pause()
-
             else:
                 app.skiing.play(restart = False, loop = True)
 
@@ -219,7 +219,6 @@ def onStep(app):
             
             curveReCalc = findCurrentCurve(app)
             posReCalc = findClosestPosOnCurve(app)
-
 
             if (app.terrain.continuityList[curveReCalc] == 0):
                 app.jumping.play(restart = True, loop = False)
@@ -246,13 +245,15 @@ def onStep(app):
                 app.character.speed = app.minSpeed
             # never dip below a certain amount or the game stops...
             
-            # movesWorld
             app.storedOrientation = app.character.orientation
-            if app.cameraMove:
+
+            # movesWorld
+            if app.cameraMove == True:
                 moveWorld(app)
             else:
                 moveCharacter(app)
 
+        # character in the air ##############################################################################3
         elif app.character.grounded == False:
 
             # initializing important variables
@@ -285,14 +286,15 @@ def onStep(app):
                 app.characterMovementVectX = vectX
                 app.characterMovementVectY = vectY
                 # death check
-                if (app.character.orientation + 45 < orientationOfGround) or (app.character.orientation - 60 > orientationOfGround):
+                if (app.character.orientation + 60 < orientationOfGround) or (app.character.orientation - 60 > orientationOfGround):
                     app.gameState = 'dead'
                 else:
                     if app.character.rotatedAmount > 180:
                         app.character.speed += app.character.chargeAmount
                         app.character.charging = True
+                        app.score += math.ceil(app.character.rotatedAmount / 360) * 100
                 app.character.rotatedAmount = 0
-            if app.cameraMove:
+            if app.cameraMove == True:
                 moveWorld(app)
             else:
                 moveCharacter(app)
@@ -318,6 +320,10 @@ def moveWorld(app, vectX = None, vectY = None):
         for rock in curveRocks: # list of rock objects
             rock.x -= vectX
             rock.y -= vectY
+    for curveTrees in app.terrain.treesList:
+        for tree in curveTrees: # list of rock objects
+            tree.x -= vectX
+            tree.y -= vectY
 
     app.titleX -= vectX
     app.titleY -= vectY
@@ -334,7 +340,7 @@ def moveCharacter(app, vectX = None, vectY = None):
 def moveCharacterToTargetPosition(app):
     distanceToCover = distance(Point(app.character.x, app.character.y), 
                                Point(app.characterTargetX, app.characterTargetY))
-    angle = math.atan2(app.characterTargetX - app.character.x, app.characterTargetY - app.character.y)
+    angle = math.atan2(app.characterTargetY - app.character.y, app.characterTargetX - app.character.x)
     if distanceToCover < app.characterToTargetSpeed:
         vectX = distanceToCover * math.cos(angle)
         vectY = distanceToCover * math.sin(angle)
@@ -359,28 +365,40 @@ def redrawAll(app):
     validPoints = app.terrain.pointsList[:drawTo] # drawn points is 2d list
     for points in validPoints: # point is a list
         drawnpointsList.extend(points)
+
+    # draw trees
+    for treeList in app.terrain.treesList[:drawTo]:
+        for tree in treeList:
+            if tree.x + tree.width / 2 > 0:
+                treeBase = tree.y + 50
+                drawPolygon(tree.x - tree.width/2, treeBase, 
+                        tree.x + tree.width / 2, treeBase, 
+                        tree.x, treeBase - tree.height, fill = rgb(53, 74, 61))
+
+            # drawImage(tree.image, tree.x, tree.y + 50, width = tree.width, height = tree.height, 
+            #         align = 'bottom')
             
+    # the terrain!
     anchorStart = [0, app.height]
     anchorEnd = [app.width, app.height]
 
-    # the terrain!
     drawPolygon(*anchorStart, *drawnpointsList, *anchorEnd, fill = 'white')
 
     imageOffsetAngle = app.character.orientation - 90
-    
-    playerImageCenterX = app.character.x + app.character.width/2 * math.cos(math.radians(imageOffsetAngle))
-    playerImageCenterY = app.character.y + app.character.height/2 * math.sin(math.radians(imageOffsetAngle))
 
-    if ((app.gameState == 'startScreen' or app.gameState == 'prePlay' or app.gameState == 'playing')) and app.titleX > -app.width:
+    if ((app.gameState == 'startScreen' or app.gameState == 'prePlay' or app.gameState == 'playing' or 
+         app.gameState == 'pause' or app.gameState == 'dead')) and app.titleX > -app.width:
         drawLabel("AUSTIN'S", app.titleX, app.titleY, align = 'center', size = 135, 
                   font = app.fontTitle, bold = True, fill = app.textColor, opacity = app.startFade)
         drawLabel("ADVENTURE", app.titleX, app.titleY + 110, align = 'center', size = 100, 
                   font = app.fontTitle, bold = False, fill =app.textColor, opacity = app.startFade)
         drawLabel("Press any key to play", app.titleX, app.titleY2, align = 'center', size = 15, 
                   font = app.fontSmall, bold = False, fill =app.textColor, opacity = app.startFade)
-        drawLabel("Press W, space, or the up arrow key to jump", app.titleX, app.titleY2 + 18, align = 'center', size = 15, 
+        drawLabel("Press w, space, or the up arrow key to jump - hold to flip", app.titleX, app.titleY2 + 20, align = 'center', size = 15, 
                   font = app.fontSmall, bold = False, fill =app.textColor, opacity = app.startFade)
-        drawLabel("Hold them to flip", app.titleX, app.titleY2 + 36, align = 'center', 
+        drawLabel("Flip to build speed! Ski and flip to get points", app.titleX, app.titleY2 + 40, align = 'center', 
+                  size = 15, font = app.fontSmall, bold = False, fill = app.textColor, opacity = app.startFade)
+        drawLabel("~ Carpe Diem ~", app.titleX, app.titleY2 + 60, align = 'center', 
                   size = 15, font = app.fontSmall, bold = False, fill = app.textColor, opacity = app.startFade)
 
     if app.gameState == 'playing' or app.gameState == 'dead' or app.gameState == 'pause' or app.gameState == 'postDead':
@@ -392,6 +410,9 @@ def redrawAll(app):
         if app.character.rotating == True:
             playerImage = app.character.linkRotating
 
+        # draw player -->
+        playerImageCenterX = app.character.x + app.character.width/2 * math.cos(math.radians(imageOffsetAngle))
+        playerImageCenterY = app.character.y + app.character.height/2 * math.sin(math.radians(imageOffsetAngle))
         imagewidth, imageheight = getImageSize(playerImage)
         imageheight = imageheight * 30 / imagewidth
         imagewidth = 30
@@ -400,39 +421,41 @@ def redrawAll(app):
                   width = imagewidth, height = imageheight, align = 'center', 
                   rotateAngle = app.character.orientation)
         
-        for rocklist in app.terrain.rocksList:
-            for rock in rocklist:
-
-                imagewidth, imageheight = getImageSize(rock.image)
-                imageheight = imageheight * rock.size / imagewidth
-                imagewidth = rock.size
-
-                rockOffsetAngle = rock.orientation - 90
-                rockImageCenterX = rock.x + imagewidth/2 * math.cos(math.radians(rockOffsetAngle))
-                rockImageCenterY = rock.y + imageheight/2 * math.sin(math.radians(rockOffsetAngle))
-
-                drawImage(rock.image, rockImageCenterX, rockImageCenterY, width = imagewidth, height = imageheight, 
-                        align = 'center', rotateAngle = rock.orientation)
-
         drawLabel(f"{math.floor(app.distanceTraveled)}m", app.width - 30, 40, align = 'right', 
                   size = 30, font = app.fontSmall, bold = False, fill = app.textColor)
+        drawLabel(f"{math.floor(app.score)}", app.width - 30, 70, align = 'right', 
+                  size = 15, font = app.fontSmall, bold = False, fill = app.lightTextColor)
+        
+    # drawing rocks
+    for rocklist in app.terrain.rocksList[:drawTo]:
+        for rock in rocklist:
+            imagewidth, imageheight = getImageSize(rock.image)
+            imageheight = imageheight * rock.size / imagewidth
+            imagewidth = rock.size
 
+            rockOffsetAngle = rock.orientation - 90
+            rockImageCenterX = rock.x + imagewidth/2 * math.cos(math.radians(rockOffsetAngle))
+            rockImageCenterY = rock.y + imageheight/2 * math.sin(math.radians(rockOffsetAngle))
+
+            drawImage(rock.image, rockImageCenterX, rockImageCenterY, width = imagewidth, height = imageheight, 
+                    align = 'center', rotateAngle = rock.orientation)
+    
     if app.gameState == 'dead' or app.gameState == 'postDead':
         drawLabel("Back to UHS", app.width/2, app.height/5 , align = 'center', size = 100, font = app.fontTitle, bold = True)
+        drawLabel(f"Distance Traveled: {math.floor(app.distanceTraveled)}m", app.width/2, app.height / 4 + 50, align = 'center', 
+                  size = 30, font = app.fontSmall, bold = False, fill = app.textColor)
+        drawLabel(f"Score: {math.floor(app.score)}", app.width/2, app.height / 4 + 90, align = 'center', 
+                  size = 30, font = app.fontSmall, bold = False, fill = app.textColor)
 
-    # overlays --> slide to the outside and disappear when game starts
-
-    # if app.gameState == 'pause':
-        # overlay pause screen on top
+    if app.gameState == 'pause':
+        drawLabel("Paused", app.width/2, app.height/5 , align = 'center', size = 100, font = app.fontTitle, bold = True)
 
     # restart layer
-    drawRect(0, 0, app.width, app.height, fill=app.textColor, opacity = app.resetFade)
+    if app.gameState != 'playing':
+        drawRect(0, 0, app.width, app.height, fill=app.textColor, opacity = app.resetFade)
 
     # atmospheric layer on top
     drawRect(0, 0, app.width, app.height, fill=app.atmosphericColors[app.colorSelect], opacity = 10)
-
-# superfluous UI things
-
 
 def main():
     runApp()
