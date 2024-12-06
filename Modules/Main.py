@@ -1,8 +1,6 @@
 from terrain import *
-from background import *
 from character import *
 from hazards import *
-from platforms import *
 from mainTools import *
 
 import math, time, random
@@ -30,8 +28,11 @@ def onAppStart(app):
     app.fontSmall = 'Domine'
     app.textColor = rgb(21, 22, 23)
     app.lightTextColor = rgb(45, 47, 48)
-    app.backgroundColors = [rgb(203, 245, 229), rgb(250, 224, 192)]
+
+    app.backgroundColors = [rgb(224, 255, 243), rgb(252, 234, 212)]
+    app.mountainColors = [rgb(145, 219, 190), rgb(214, 167, 131)]
     app.atmosphericColors = [rgb(0, 252, 156), rgb(255, 115, 0)]
+    app.sunBlendingColors = [rgb(222, 242, 170), rgb(252, 215, 146)]
 
     # selecting color pallete
     app.colorSelect = random.randint(0, len(app.backgroundColors) - 1)
@@ -118,7 +119,6 @@ def onKeyPress(app, key):
             app.angleTakeOff = app.character.orientation
             app.jumping.play(restart = True, loop = False)
             jump(app)
-            app.speedMax = app.characterMovementVectX
             app.character.grounded = False
             moveWorld(app)
         
@@ -158,6 +158,7 @@ def onStep(app):
         if app.resetFade >= 100:
             app.gameState = 'startScreen'
             restartGame(app)
+
     if app.resetFade != 0 and app.gameState == 'startScreen':
         app.resetFade -= 2
             
@@ -206,11 +207,6 @@ def onStep(app):
 
             app.character.currentCurve = findCurrentCurve(app)
             app.character.posOnCurve = findClosestPosOnCurve(app)
-            
-            try:
-                app.character.orientation = getOrientation(app)
-            except:
-                pass
 
             # if not continuous --> launch off
 
@@ -259,24 +255,27 @@ def onStep(app):
             # initializing important variables
             app.character.currentCurve = findCurrentCurve(app)
             app.character.posOnCurve = findClosestPosOnCurve(app)
-            orientationOfGround = getOrientation(app)  
+            try:
+                orientationOfGround = getOrientation(app) 
+            except:
+                pass
             
             if app.characterMovementVectY < app.terminal:
                 app.characterMovementVectY += app.gravity  # gravity   
                 app.character.speed += app.gravity * 2 * math.sin(math.radians(app.character.orientation))
 
-            app.character.speed -= app.naturalResistance # friction + air resistance
-            # app.characterMovementVectX -= app.naturalResistance
-
-            if app.character.speed < app.minSpeed:
-                app.character.speed = app.minSpeed
+            if app.character.speed > app.minSpeed:
+                app.character.speed -= app.naturalResistance # air resistance
             
             if app.character.rotating:
                 app.character.orientation -= app.character.rotationRate
                 app.character.rotatedAmount += app.character.rotationRate
-            elif app.character.rotating == False and app.character.rotatedAmount < 180: # should recenter character --> should have an exception tho uhhhhhhhhhhhhhhhhhhh
+            elif app.character.rotating == False and app.character.rotatedAmount < 180: 
+                # should recenter character given that they have not made a half-flip
                 if app.character.orientation < app.angleTakeOff:
                     app.character.orientation -= ((app.anglePortionToCorrect) / 100)
+            elif app.character.rotating == False and app.character.rotatedAmount > 180:
+                app.character.orientation -= 1
 
             # ground collision check
             vectX, vectY = groundCollisionCheck(app)
@@ -337,20 +336,6 @@ def moveCharacter(app, vectX = None, vectY = None):
     app.character.x += vectX
     app.character.y += vectY
 
-def moveCharacterToTargetPosition(app):
-    distanceToCover = distance(Point(app.character.x, app.character.y), 
-                               Point(app.characterTargetX, app.characterTargetY))
-    angle = math.atan2(app.characterTargetY - app.character.y, app.characterTargetX - app.character.x)
-    if distanceToCover < app.characterToTargetSpeed:
-        vectX = distanceToCover * math.cos(angle)
-        vectY = distanceToCover * math.sin(angle)
-    else:
-        vectX = app.characterToTargetSpeed * math.cos(angle)
-        vectY = app.characterToTargetSpeed * math.sin(angle)
-    
-    moveWorld(app, vectX, vectY)
-    moveCharacter(app, vectX, vectY)
-
 def redrawAll(app):
     # background --> draw series of shifting polygons
     drawRect(0, 0, app.width, app.height, fill=app.backgroundColors[app.colorSelect])
@@ -366,6 +351,10 @@ def redrawAll(app):
     for points in validPoints: # point is a list
         drawnpointsList.extend(points)
 
+    mountainGrad = gradient(app.mountainColors[app.colorSelect], app.backgroundColors[app.colorSelect], start = 'top')
+    drawPolygon(0, app.height / 6 * 5, app.width / 5, app.height / 7 * 4, app.width / 2, app.height / 3, 
+                app.width / 9 * 7, app.height / 2, app.width, app.height / 6 * 5, fill = mountainGrad)
+
     # draw trees
     for treeList in app.terrain.treesList[:drawTo]:
         for tree in treeList:
@@ -373,11 +362,8 @@ def redrawAll(app):
                 treeBase = tree.y + 50
                 drawPolygon(tree.x - tree.width/2, treeBase, 
                         tree.x + tree.width / 2, treeBase, 
-                        tree.x, treeBase - tree.height, fill = rgb(53, 74, 61))
-
-            # drawImage(tree.image, tree.x, tree.y + 50, width = tree.width, height = tree.height, 
-            #         align = 'bottom')
-            
+                        tree.x, treeBase - tree.height, fill = rgb(53, 74, 61))            
+    
     # the terrain!
     anchorStart = [0, app.height]
     anchorEnd = [app.width, app.height]
@@ -455,7 +441,8 @@ def redrawAll(app):
         drawRect(0, 0, app.width, app.height, fill=app.textColor, opacity = app.resetFade)
 
     # atmospheric layer on top
-    drawRect(0, 0, app.width, app.height, fill=app.atmosphericColors[app.colorSelect], opacity = 10)
+    sunGrad = gradient(rgb(255, 252, 201), app.atmosphericColors[app.colorSelect], start = 'left-top')
+    drawRect(0, 0, app.width, app.height, fill = sunGrad, opacity = 10)
 
 def main():
     runApp()
