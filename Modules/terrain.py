@@ -3,6 +3,7 @@
 
 from cmu_graphics import *
 from tools import *
+from hazards import *
 import math, random
 
 class Terrain:
@@ -22,7 +23,8 @@ class Terrain:
         self.controlList = [] # 2d list containing lists of control points
         self.lengthList = [] # length of the list of points in pointsList corresponding to controlList[0]
         self.continuityList = [1] # continuity figure correlates to p2 of the curve --> first curve has 1 as default
- 
+        self.rocksList = [[]]
+
         self.curvesPassed = []
 
     def startPreGen(self, width):
@@ -45,14 +47,50 @@ class Terrain:
         
         # feed control points into genCurve --> spits out list of points for drawing
         # append to pointsList
-        lineSplit = 150 * scalar
-        segment = 1 / lineSplit
-        print(lineSplit)
+        lineSplit = Terrain.lineSplit * scalar
+        Terrain.segment = 1 / lineSplit
+        
         curve = self.genCurve()
         self.lengthList.append(len(curve))
         self.pointsList.append(curve)
 
+        rocks = self.genRocks(curve)
+        self.rocksList.append(rocks)
+
         self.curvesPassed.append(False)
+
+    def genRocks(self, pointsList):
+        rockPositions = []
+        positionsPossible = self.lineSplit
+        preSelect = random.randint(0,13)
+        if preSelect <= 10:
+            rockNum = 0
+        elif preSelect <= 13:
+            rockNum = 1
+        
+        if self.continuityList[-1] != 0: 
+            for _ in range(rockNum):
+                rockIndex = random.randint(0, positionsPossible - 10) * 2
+                previousPointIndex = rockIndex - 2
+                pictureSelect = random.randint(1, 5)
+
+                rockPosition = Point(pointsList[rockIndex], pointsList[rockIndex + 1])
+                if previousPointIndex < 0:
+                    comparisonPosition = Point(pointsList[rockIndex + 2], pointsList[rockIndex + 3])
+                    angle = math.atan2(comparisonPosition.y - rockPosition.y, comparisonPosition.x - rockPosition.x)
+                else:
+                    comparisonPosition = Point(pointsList[previousPointIndex], pointsList[previousPointIndex + 1])
+                    angle = math.atan2(rockPosition.y - comparisonPosition.y, rockPosition.x - comparisonPosition.x)
+
+                rock = Rock(rockPosition.x, rockPosition.y, math.degrees(angle), pictureSelect)
+                if pictureSelect == 5:
+                    rock.image = './Sprites/campfire.png'
+                    rock.size = 40
+
+                if rockPosition not in rockPositions:
+                    rockPositions.append(rock)
+
+        return rockPositions
 
     @staticmethod
     def cubicBezier(p1, p2, p3, p4, t):
@@ -180,5 +218,20 @@ def normalScalar():
 def normalRandom(min, max, step = 1):
     center = min + max
     return (random.randrange(min, max, step) - random.randrange(min, max, step) + center)/2
+
+class Coin:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.image = f'./Sprites/coin.png'
+    
+    def __repr__(self):
+        return f'({self.x}, {self.y})'
+    
+    def __eq__(self, coin2):
+        if type(coin2) == Coin:
+            return (self.x == coin2.x) and (self.y == coin2.y) 
+        else:
+            return False
 
     

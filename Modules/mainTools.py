@@ -1,13 +1,13 @@
+from cmu_graphics import *
 from terrain import *
 from background import *
 from character import *
-from chasers import *
 from hazards import *
 from platforms import *
 
 import math, time, random
 
-def moveCharacter(app):
+def slideCharacter(app):
     # print(app.character.posOnCurve)
     initialPoint = assignCurvePoint(app, app.character.posOnCurve)
 
@@ -136,6 +136,26 @@ def moveCharacter(app):
             vectY = (undershot.y - app.character.y - (remaining) * math.sin(angle))
             return vectX, vectY
         
+def jump(app):
+    app.character.charging = False
+    orientation = math.radians(-app.character.orientation)
+    orientationY = math.radians(app.character.orientation - 90)
+
+    app.characterMovementVectX = (app.character.speed) * math.cos(orientation)
+    app.characterMovementVectY = (app.character.vert) * math.sin(orientationY)
+    app.skiing.pause()
+    
+def slideOff(app):
+    app.character.grounded = False
+    app.terrain.continuityList[app.character.currentCurve] = 1
+    orientation = math.radians(-app.storedOrientation)
+
+    app.characterMovementVectX = (app.character.speed) * math.cos(orientation)
+    app.characterMovementVectY = -1 * (app.character.speed) * math.sin(orientation)
+    app.character.rotating = False
+    app.anglePortionToCorrect = 0
+    app.skiing.pause()
+
 def groundCollisionCheck(app):
     groundPointApproximate = assignCurvePoint(app, app.character.posOnCurve)
     error = distance(app.character, groundPointApproximate)
@@ -162,7 +182,24 @@ def groundCollisionCheck(app):
             return vectX, vectY
     else:
         return 0, 0
-        
+    
+def rockCollisionCheck(app):
+    for rocklist in app.terrain.rocksList:
+        for rock in rocklist:
+            if distance(Point(app.character.x, app.character.y), Point(rock.x, rock.y)) < (rock.size / 2):
+                # if direct collision --> die
+                collisionAngle = math.degrees(math.atan2(app.character.y - rock.y, app.character.x - rock.x))
+                perpRock = rock.orientation - 90
+                if abs(collisionAngle - perpRock) < 45:
+                    jump(app)
+                    return False
+                else:
+                    app.hit.play(restart = True, loop = False)
+                    app.landing.play(restart = True, loop = False)
+                    app.character.grounded = False
+                    app.gameState = 'dead'
+                    return True
+
 def getOrientation(app):
     if app.character.posOnCurve - 2 < 0:
         predex = len(app.terrain.pointsList[app.character.currentCurve - 1]) - 4
@@ -179,6 +216,8 @@ def getOrientation(app):
     prodex = app.character.posOnCurve
     proCurve = app.character.currentCurve
 
+    # print(f'preceedingPoint = assignCurvePoint2(app, {predex}, {preCurve})')
+    # print(f'proceedingPoint = assignCurvePoint2(app, {prodex}, {proCurve})')
     preceedingPoint = assignCurvePoint2(app, predex, preCurve)
     proceedingPoint = assignCurvePoint2(app, prodex, proCurve)
     angle = math.atan2(proceedingPoint.y - preceedingPoint.y, proceedingPoint.x - preceedingPoint.x)
